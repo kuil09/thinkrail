@@ -37,7 +37,13 @@ V1 (the chat-plan UX this feeds: [[submodule-web-chat]]'s "Chat TODO plan").
 `host/server.ts` tees `isTodoToolEnd` off the session event stream and fires
 `maybeAttachChangeArtifacts(workspaceId, sessionId)` off the publish path (`void` — it runs git writes).
 Reconciles are **serialized per workspace** (a promise chain) so two quick `todo_*` ends can't race the
-index mid-commit; the whole path is best-effort and never throws into the event stream.
+index mid-commit; the whole path is best-effort and never throws into the event stream. The same chain
+serializes **every other sidecar writer** — the UI's `todo.remove` and `session.delete`'s window removal
+enqueue behind any in-flight reconcile (`enqueueTodoMutation`) — because a reconcile reads plan +
+baselines, awaits git, and ends with a whole-map baseline write: an unqueued removal landing inside that
+window would be resurrected by the stale write, exactly the permanent-orphan case below. Agent-side
+`todo_*` plan writes can't be queued (they happen inside pi), but every one fires a tool end that
+enqueues a follow-up reconcile, whose orphan-prune self-heals what the stale pass got wrong.
 
 On `in_progress` it **opens the item's work window**: a baseline of the worktree's **uncommitted**
 changed-path set + the current `HEAD` sha, **persisted** in a host-owned sidecar next to the todos JSON
@@ -207,15 +213,16 @@ it resolves immediately when nothing is in flight, and never rejects.
   no todo file counts 0),
   `addTodo(...) → TodoItem` (validates a non-empty title; tags `origin: "user"`),
   `updateTodo(...) → TodoItem` (throws on unknown id → a `{ ok:false }` WS response),
-  `removeTodo(...) → { ok:true }` (idempotent; **throws while the item is `pending` an agent review** —
-  a removal mid-review would strand `host`'s in-flight registration (`currentReview`, the per-plan
-  latch — both memory-only, cleared only by the reviewer session's settle) and let a stray
-  `add_review_comment` file a finding against an id that no longer exists; the client disables Remove
-  on a `reviewing` row the same way it already disables Start review). This durable check alone only
-  covers start→verdict: `review_verdict` clears `pending` mid-turn, before the reviewer session
-  settles, so `host/todoReview.ts`'s `todo.remove` handler layers `isItemUnderActiveReview` (reads
-  `currentReview` directly) in front of this call — closing the verdict→settle tail the durable mark
-  can't see. See host/SPEC.md.),
+  `removeTodo(...) → Promise<{ ok:true }>` (idempotent; enqueued on the per-workspace reconcile chain —
+  see the sidecar-writer serialization above — as is `removeSessionTodoWindows`; **throws while the item
+  is `pending` an agent review** — a removal mid-review would strand `host`'s in-flight registration
+  (`currentReview`, the per-plan latch — both memory-only, cleared only by the reviewer session's
+  settle) and let a stray `add_review_comment` file a finding against an id that no longer exists; the
+  client disables Remove on a `reviewing` row the same way it already disables Start review). This
+  durable check alone only covers start→verdict: `review_verdict` clears `pending` mid-turn, before the
+  reviewer session settles, so `host/todoReview.ts`'s `todo.remove` handler layers
+  `isItemUnderActiveReview` (reads `currentReview` directly) in front of this call — closing the
+  verdict→settle tail the durable mark can't see. See host/SPEC.md.),
   `approveTodoReview(...)` / `requestTodoFix(...) → { pkg, previous }` / `rollbackTodoFix(...)` + the
   pure `renderFixPackage` (the review ops; the send itself is `host`'s composition), and the
   `TodoReviewRecord` type. **Mapping only** — no plan logic; `TodoStore` owns disk.

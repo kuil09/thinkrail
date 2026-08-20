@@ -15,7 +15,7 @@ import {
 } from "pi-todos/core";
 import { gitStatus } from "../git";
 import { getWorkspace } from "../workspaces";
-import { settleChangeArtifacts, unattributedChanges } from "./artifacts";
+import { enqueueTodoMutation, settleChangeArtifacts, unattributedChanges } from "./artifacts";
 import { dropItemBaseline, readBaselines, removeSessionBaselines } from "./baselines";
 import {
 	clearAutoCycles,
@@ -39,12 +39,15 @@ function storeFor(workspaceId: string, sessionId: string): TodoStore {
 
 const commitFilesCache = new Map<string, GitFileChange[]>();
 
-function resolveCommitFiles(workspaceId: string, sha: string): GitFileChange[] | undefined {
+async function resolveCommitFiles(
+	workspaceId: string,
+	sha: string,
+): Promise<GitFileChange[] | undefined> {
 	const key = `${workspaceId}\u0000${sha}`;
 	const hit = commitFilesCache.get(key);
 	if (hit) return hit;
 	try {
-		const files = gitStatus(workspaceId, { kind: "commit", sha }).changes;
+		const files = (await gitStatus(workspaceId, { kind: "commit", sha })).changes;
 		commitFilesCache.set(key, files);
 		return files;
 	} catch {
@@ -52,18 +55,20 @@ function resolveCommitFiles(workspaceId: string, sha: string): GitFileChange[] |
 	}
 }
 
-function toWireItem(
+async function toWireItem(
 	workspaceId: string,
 	item: StoredItem,
 	record: TodoReviewRecord | undefined,
 	reviewing: boolean,
-): TodoItem {
+): Promise<TodoItem> {
 	if (!item.artifacts) return item;
-	const artifacts = item.artifacts.map((a): TodoArtifact => {
-		if (a.kind !== "commit" || !a.sha) return a;
-		const files = resolveCommitFiles(workspaceId, a.sha);
-		return files ? { ...a, files } : a;
-	});
+	const artifacts = await Promise.all(
+		item.artifacts.map(async (a): Promise<TodoArtifact> => {
+			if (a.kind !== "commit" || !a.sha) return a;
+			const files = await resolveCommitFiles(workspaceId, a.sha);
+			return files ? { ...a, files } : a;
+		}),
+	);
 	const review = reviewInfo(item, record, reviewing);
 	return review ? { ...item, artifacts, review } : { ...item, artifacts };
 }
@@ -98,15 +103,15 @@ function reviewInfo(
 	return info;
 }
 
-function resolveUnattributed(
+async function resolveUnattributed(
 	workspaceId: string,
 	root: string,
 	sessionId: string,
 	plan: StoredPlan,
-): GitFileChange[] {
+): Promise<GitFileChange[]> {
 	try {
 		return unattributedChanges(
-			gitStatus(workspaceId, { kind: "uncommitted" }).changes,
+			(await gitStatus(workspaceId, { kind: "uncommitted" })).changes,
 			plan,
 			readBaselines(root, sessionId),
 		);
@@ -125,17 +130,23 @@ export async function listTodos(params: {
 	const records = readReviewRecords(root, params.sessionId);
 	const pending = readReviewMeta(root, params.sessionId).pending;
 	const wire: TodoPlan = {
-		todos: plan.todos.map((t) => toWireItem(params.workspaceId, t, records[t.id], t.id in pending)),
-		groups: plan.groups.map((group) => ({
-			...group,
-			todos: group.todos.map((t) =>
-				toWireItem(params.workspaceId, t, records[t.id], t.id in pending),
-			),
-			status: groupStatus(group),
-		})),
+		todos: await Promise.all(
+			plan.todos.map((t) => toWireItem(params.workspaceId, t, records[t.id], t.id in pending)),
+		),
+		groups: await Promise.all(
+			plan.groups.map(async (group) => ({
+				...group,
+				todos: await Promise.all(
+					group.todos.map((t) =>
+						toWireItem(params.workspaceId, t, records[t.id], t.id in pending),
+					),
+				),
+				status: groupStatus(group),
+			})),
+		),
 	};
 	if (plan.summary) wire.summary = plan.summary;
-	const unattributed = resolveUnattributed(params.workspaceId, root, params.sessionId, plan);
+	const unattributed = await resolveUnattributed(params.workspaceId, root, params.sessionId, plan);
 	if (unattributed.length > 0) wire.unattributed = unattributed;
 	const reviewer = readReviewMeta(root, params.sessionId).reviewerSessionId;
 	if (reviewer) wire.reviewerSessionId = reviewer;
@@ -150,10 +161,15 @@ export function openTodoCount(plan: StoredPlan): number {
 	return flatItems(plan).filter((item) => item.status !== "done").length;
 }
 
-export function removeSessionTodoWindows(params: { workspaceId: string; sessionId: string }): void {
-	const root = getWorkspace(params.workspaceId).worktreePath;
-	removeSessionBaselines(root, params.sessionId);
-	removeSessionReviews(root, params.sessionId);
+export function removeSessionTodoWindows(params: {
+	workspaceId: string;
+	sessionId: string;
+}): Promise<void> {
+	return enqueueTodoMutation(params.workspaceId, () => {
+		const root = getWorkspace(params.workspaceId).worktreePath;
+		removeSessionBaselines(root, params.sessionId);
+		removeSessionReviews(root, params.sessionId);
+	});
 }
 
 export function addTodo(params: {
@@ -189,20 +205,26 @@ export function updateTodo(params: {
 	return result.todo;
 }
 
-export function removeTodo(params: { workspaceId: string; sessionId: string; id: string }): {
+export function removeTodo(params: {
+	workspaceId: string;
+	sessionId: string;
+	id: string;
+}): Promise<{
 	ok: true;
-} {
-	const root = getWorkspace(params.workspaceId).worktreePath;
-	if (readReviewMeta(root, params.sessionId).pending[params.id]) {
-		throw new Error(
-			`TODO "${params.id}" is currently under review — cancel or wait for the review to finish before removing it.`,
-		);
-	}
-	new TodoStore(root, params.sessionId).remove(params.id);
-	dropItemBaseline(root, params.sessionId, params.id);
-	dropReviewRecord(root, params.sessionId, params.id);
-	clearAutoCycles(root, params.sessionId, params.id);
-	return { ok: true } as const;
+}> {
+	return enqueueTodoMutation(params.workspaceId, () => {
+		const root = getWorkspace(params.workspaceId).worktreePath;
+		if (readReviewMeta(root, params.sessionId).pending[params.id]) {
+			throw new Error(
+				`TODO "${params.id}" is currently under review — cancel or wait for the review to finish before removing it.`,
+			);
+		}
+		new TodoStore(root, params.sessionId).remove(params.id);
+		dropItemBaseline(root, params.sessionId, params.id);
+		dropReviewRecord(root, params.sessionId, params.id);
+		clearAutoCycles(root, params.sessionId, params.id);
+		return { ok: true } as const;
+	});
 }
 
 function reviewableItem(params: { workspaceId: string; sessionId: string; id: string }): {

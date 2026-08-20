@@ -28,7 +28,15 @@ ref off the workspace-create critical path.
   wrote before the kill**: the runner drains continuously, so on expiry its `err` already holds the real
   diagnosis — a publickey rejection, a proxy's refusal, `remote:` progress proving a large transfer was simply
   still running. The ssh-key hint is what we say when git wrote *nothing*, never advice pasted over an
-  observation we already have (the message never names a cause we did not observe);
+  observation we already have (the message never names a cause we did not observe).
+  **Request-path reads run through `gitAsync`** — `resolveDiffRange`, `gitStatus`, `gitDiffFile`,
+  `listCommits`, `listBranches` and the workspace badge fan-out are async, so a multi-spawn read can never
+  freeze the host's single cooperative event loop (profiled at 119–246ms of frozen loop per
+  `workspace.list` before the migration). The sync runner stays for **writers** (their load→mutate→save
+  atomicity depends on not interleaving — `gitCommitPaths`' index snapshot/restore, the `workspaces`
+  writers) and for **micro-plumbing leaf helpers** shared with those writers
+  (`currentBranch`/`tryCurrentBranch`/`resolveDefaultBranch`/`resolveCommitOid`/`readBlobAt`/`gitHeadSha`
+  — single fast local ref reads);
   **`remoteTrackingRef(ref)`** → `refs/remotes/<ref>` for an `origin/` ref, else `null` — **the one place
   that spelling is built**, so the probe below and `workspaces`' `worktree add` cannot drift apart. Its
   reach is **creation only**, and `resolveDiffRange` is the named survivor: `diffBaseRef` hands git the
@@ -47,7 +55,9 @@ ref off the workspace-create critical path.
   `raw`; `gitAsync` alone accepts an `opts.env` override, e.g. `pr`'s non-interactive push, which layers its
   own SSH batch-mode settings): `process.env` plus `GIT_TERMINAL_PROMPT=0`, and **nothing else** by default.
   It reads no config and rewrites none of the user's ssh setup on its own;
-  **the scope→range resolver** — `resolveDiffRange(ws, scope?)` → `DiffRange` — **the one definition of what
+  **the scope→range resolver** — `resolveDiffRange(ws, scope?)` → `Promise<DiffRange>` (async — and
+  deliberately kept the *single* implementation: its `reviews` consumers went async with it rather than
+  keeping a drift-prone sync twin) — **the one definition of what
   a `GitDiffScope` means** (`branch`: `git diff <merge-base(base, HEAD)>` + untracked, sides = **fork
   point** ↔ worktree — what the workspace changed *since diverging*, so a base that advanced underneath it
   (a fetch moving `origin/main`, upstream work landing) never surfaces as phantom changes; while the base

@@ -408,7 +408,7 @@ export function installTodoReviewSeams(): void {
 		};
 	});
 
-	setReflectFindingHandler((reflectorSessionId, params: ReflectFindingParams) => {
+	setReflectFindingHandler(async (reflectorSessionId, params: ReflectFindingParams) => {
 		const pending = pendingFix.get(reflectorSessionId);
 		if (!pending)
 			throw new Error("reflect_finding is only for the reflector session of an active fix cycle.");
@@ -416,7 +416,7 @@ export function installTodoReviewSeams(): void {
 			throw new Error(
 				`reflect_finding: ${params.commentId} is not one of this reflection's candidate findings.`,
 			);
-		const comment = setReflection(pending.workspaceId, params.commentId, {
+		const comment = await setReflection(pending.workspaceId, params.commentId, {
 			verdict: params.verdict,
 			confidence: params.confidence,
 			reason: params.reason,

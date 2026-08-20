@@ -171,12 +171,15 @@ export const ReflectFindingSchema = Type.Object({
 });
 export type ReflectFindingParams = Static<typeof ReflectFindingSchema>;
 
-let reflectHandler: (sessionId: string, params: ReflectFindingParams) => { body: string } = () => {
+let reflectHandler: (
+	sessionId: string,
+	params: ReflectFindingParams,
+) => Promise<{ body: string }> = () => {
 	throw new Error("Reflection is not available on this host.");
 };
 
 export function setReflectFindingHandler(
-	fn: (sessionId: string, params: ReflectFindingParams) => { body: string },
+	fn: (sessionId: string, params: ReflectFindingParams) => Promise<{ body: string }>,
 ): void {
 	reflectHandler = fn;
 }
@@ -190,7 +193,7 @@ export function createReflectFindingTool(): ToolDefinition<typeof ReflectFinding
 		parameters: ReflectFindingSchema,
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			const p = params as ReflectFindingParams;
-			reflectHandler(ctx.sessionManager.getSessionId(), p);
+			await reflectHandler(ctx.sessionManager.getSessionId(), p);
 			return {
 				content: [
 					{ type: "text", text: `Reflection on ${p.commentId}: ${p.verdict} (${p.confidence}).` },
