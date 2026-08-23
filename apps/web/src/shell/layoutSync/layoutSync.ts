@@ -307,7 +307,10 @@ export function useWorkspaceLayoutSynchronization(workspaceId: string): void {
 	const connectionGeneration = useAppStore((state) => state.connectionGeneration);
 	const document = useAppStore((state) => state.layoutDocumentsByWorkspace[workspaceId]);
 	const attention = useAppStore((state) => state.layoutAttentionByWorkspace[workspaceId]);
-	const previousDocument = useRef<WorkspaceLayoutDocument | undefined>(undefined);
+	const previousDocument = useRef<{
+		workspaceId: string;
+		document: WorkspaceLayoutDocument;
+	} | null>(null);
 
 	useEffect(() => {
 		if (status !== "connected" || connectionGeneration === 0) return;
@@ -325,8 +328,8 @@ export function useWorkspaceLayoutSynchronization(workspaceId: string): void {
 
 	useEffect(() => {
 		if (!document) return;
-		if (!previousDocument.current) {
-			previousDocument.current = document;
+		if (!previousDocument.current || previousDocument.current.workspaceId !== workspaceId) {
+			previousDocument.current = { workspaceId, document };
 			installAttentionForDocument(workspaceId, document);
 			return;
 		}
@@ -334,9 +337,9 @@ export function useWorkspaceLayoutSynchronization(workspaceId: string): void {
 		const next = reconcileAttention(
 			document,
 			state.layoutAttentionByWorkspace[workspaceId],
-			previousDocument.current,
+			previousDocument.current.document,
 		);
-		previousDocument.current = document;
+		previousDocument.current = { workspaceId, document };
 		if (
 			!state.layoutAttentionByWorkspace[workspaceId] ||
 			!sameAttention(next, state.layoutAttentionByWorkspace[workspaceId])

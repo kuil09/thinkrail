@@ -226,7 +226,16 @@ export function WorkspaceWorkbench({ workspaceId }: { workspaceId: string }) {
 	const reviewComments = useAppStore((state) => state.reviewsByWorkspace[workspaceId]?.comments);
 	const reviewDraftCount = useAppStore((state) => selectReviewDraftCount(state, workspaceId));
 	const reviewFlagByPath = useMemo(() => reviewFlags(reviewComments), [reviewComments]);
-	const [focusRequest, setFocusRequest] = useState<LayoutTabFocusRequest | null>(null);
+	const [focusRequestState, setFocusRequestState] = useState<{
+		workspaceId: string;
+		request: LayoutTabFocusRequest;
+	} | null>(null);
+	const requestFocus = useCallback(
+		(request: LayoutTabFocusRequest) => setFocusRequestState({ workspaceId, request }),
+		[workspaceId],
+	);
+	const focusRequest =
+		focusRequestState?.workspaceId === workspaceId ? focusRequestState.request : null;
 	const attemptedInitialTerminalGeneration = useRef<number | null>(null);
 	const activeReviewedPath = useAppStore((state) => selectActiveReviewedPath(state, workspaceId));
 	const readActiveReviewedPath = useCallback(
@@ -315,7 +324,7 @@ export function WorkspaceWorkbench({ workspaceId }: { workspaceId: string }) {
 	useLegacySelectionAdapter(workspaceId, activeReviewedPath, readActiveReviewedPath);
 	useDeletedChatPlacementReconciliation(workspaceId);
 	useTerminalReservation(workspaceId);
-	useLayoutIntentProcessing(workspaceId, commit, changeAttention, setFocusRequest);
+	useLayoutIntentProcessing(workspaceId, commit, changeAttention, requestFocus);
 	useWorkspaceChatCatalogReconciliation(workspaceId, commit);
 	const { terminals, catalogReady: terminalCatalogReady } = useTerminalPlacementReconciliation(
 		workspaceId,
