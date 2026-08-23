@@ -68,9 +68,15 @@ progressive responsive degradation. A selected project without an active workspa
 No selected project leaves the logo alone.
 
 With an active workspace, `Shell` mounts the synchronized workbench from `layout/`; the workbench owns all
-center and left/right/bottom auxiliary geometry, alignment, and visibility. Without one, it mounts the
-existing Welcome surface beside the projects navigator using separate client-local geometry—there is no
-workspace layout document to mutate.
+center and left/right/bottom auxiliary geometry, alignment, and visibility. `WorkspaceWorkbench` is mounted
+**once and retargeted** on workspace switch — never keyed by workspace id. A keyed remount blanks the whole
+frame and re-instantiates every panel (the switch-flicker regression this rule pins); instead, every
+orchestration hook takes `workspaceId` as a retargetable parameter, per-workspace baselines held in refs are
+workspace-stamped, and browser-local UI state that names workspace resources (e.g. the pending tab-focus
+request) is stamped with its workspace and ignored after a switch. Per-workspace tab/group subtrees inside
+the workbench still reconcile away naturally because layout node ids are unique per workspace. Without one,
+it mounts the existing Welcome surface beside the projects navigator using separate client-local
+geometry—there is no workspace layout document to mutate.
 Toasts mount once above both branches.
 
 The shell is also the sole theme side-effect owner: store receives the host-selected opaque theme through

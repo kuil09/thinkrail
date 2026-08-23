@@ -28,6 +28,12 @@ attention when the structural document changes.
   the pure layout preset/attention surface, server/shared/pi imports, or automatic retry/rebase of a stale
   full document.
 
+The mounted synchronization hook is **retargetable**: one component instance survives `workspaceId`
+changes (the shell intentionally does not remount the workbench per workspace), so the hook's
+attention-reconciliation baseline is workspace-stamped — switching workspaces re-enters the
+first-document path (install attention for the new document) and never reconciles one workspace's
+attention against another workspace's previous document.
+
 A conflict is expected synchronization: install the returned current snapshot (including `null`) unless a
 newer accepted broadcast already overtook that response, cancel the conflicting optimistic mutation and its
 dependents, and reject with a conflict-specific local error without the generic save-failure toast. A queued
