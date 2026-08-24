@@ -9,7 +9,9 @@ import { useAppStore } from "../../store";
 import {
 	commitWorkspaceLayout,
 	hydrateWorkspaceLayout,
+	prewarmWorkspaceLayout,
 	resetLayoutSyncForTests,
+	setLayoutGetRequesterForTests,
 	setLayoutReplaceRequesterForTests,
 } from "./index";
 
@@ -367,6 +369,45 @@ describe("synchronized layout store", () => {
 	test("removed workspaces reject hydration before issuing any transport work", async () => {
 		useAppStore.setState({ removedWorkspaceIds: { ws: true } });
 		await expect(hydrateWorkspaceLayout("ws")).rejects.toThrow("Workspace has been removed");
+	});
+
+	test("prewarm installs the host snapshot and attention without a mounted workbench", async () => {
+		useAppStore.setState({ status: "connected", connectionGeneration: 1 });
+		setLayoutGetRequesterForTests(async () => snapshot(3, "warm"));
+		setLayoutReplaceRequesterForTests(async () => {
+			throw new Error("prewarm must never write");
+		});
+		await prewarmWorkspaceLayout("ws");
+		const state = useAppStore.getState();
+		expect(state.layoutDocumentsByWorkspace.ws).toEqual(document("warm"));
+		expect(state.layoutAttentionByWorkspace.ws).toBeDefined();
+		expect(state.toasts).toEqual([]);
+	});
+
+	test("prewarm of a workspace without a host layout leaves the store untouched and never creates one", async () => {
+		useAppStore.setState({ status: "connected", connectionGeneration: 1 });
+		setLayoutGetRequesterForTests(async () => null);
+		setLayoutReplaceRequesterForTests(async () => {
+			throw new Error("prewarm must never write");
+		});
+		await prewarmWorkspaceLayout("ws");
+		const state = useAppStore.getState();
+		expect(state.layoutDocumentsByWorkspace.ws).toBeUndefined();
+		expect(state.layoutAttentionByWorkspace.ws).toBeUndefined();
+		expect(state.toasts).toEqual([]);
+	});
+
+	test("prewarm never overwrites an already-hydrated document and skips removed workspaces", async () => {
+		useAppStore.setState({ status: "connected", connectionGeneration: 1 });
+		useAppStore.getState().installLayoutSnapshot(snapshot(5, "hydrated"));
+		setLayoutGetRequesterForTests(async () => {
+			throw new Error("prewarm must not refetch a hydrated workspace");
+		});
+		await prewarmWorkspaceLayout("ws");
+		expect(useAppStore.getState().layoutDocumentsByWorkspace.ws).toEqual(document("hydrated"));
+		useAppStore.setState({ removedWorkspaceIds: { gone: true } });
+		await prewarmWorkspaceLayout("gone");
+		expect(useAppStore.getState().layoutDocumentsByWorkspace.gone).toBeUndefined();
 	});
 
 	test("a failed first seed removes its unaccepted optimistic document", () => {

@@ -24,6 +24,7 @@ import type { ConnectionStatus } from "../transport";
 import { BrandLogo } from "./BrandLogo";
 import { CollapsedPanelRail } from "./CollapsedPanelRail";
 import { LayoutSettings } from "./LayoutSettings";
+import { useWorkspaceLayoutPrewarm } from "./layoutSync";
 import { useCollapsibleRegion } from "./useCollapsibleRegion";
 import { useGlobalHotkeys } from "./useGlobalHotkeys";
 import { WorkspaceWorkbench } from "./WorkspaceWorkbench";
@@ -57,6 +58,7 @@ export function Shell() {
 		applyTheme(theme);
 		writeThemeHint(theme);
 	}, [theme]);
+	useWorkspaceLayoutPrewarm();
 	useGlobalHotkeys({
 		onProjects: hasActiveWorkspace
 			? () => {

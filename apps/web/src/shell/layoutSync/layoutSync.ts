@@ -21,6 +21,8 @@ const hydration = new Map<string, Promise<WorkspaceLayoutDocument>>();
 const commitQueues = new Map<string, Promise<void>>();
 type LayoutReplaceRequester = (params: LayoutReplaceParams) => Promise<LayoutReplaceResult>;
 let layoutReplaceRequesterForTests: LayoutReplaceRequester | null = null;
+type LayoutGetRequester = (workspaceId: string) => Promise<WorkspaceLayoutSnapshot | null>;
+let layoutGetRequesterForTests: LayoutGetRequester | null = null;
 
 class SupersededLayoutCommitError extends Error {
 	constructor() {
@@ -55,6 +57,17 @@ function requestLayoutReplace(params: LayoutReplaceParams): Promise<LayoutReplac
 
 export function setLayoutReplaceRequesterForTests(requester: LayoutReplaceRequester | null): void {
 	layoutReplaceRequesterForTests = requester;
+}
+
+function requestLayoutGet(workspaceId: string): Promise<WorkspaceLayoutSnapshot | null> {
+	return (
+		layoutGetRequesterForTests?.(workspaceId) ??
+		getTransport().request("layout.get", { workspaceId })
+	);
+}
+
+export function setLayoutGetRequesterForTests(requester: LayoutGetRequester | null): void {
+	layoutGetRequesterForTests = requester;
 }
 
 function attentionStorageKey(workspaceId: string): string {
@@ -233,8 +246,7 @@ export function hydrateWorkspaceLayout(workspaceId: string): Promise<WorkspaceLa
 	const existing = hydration.get(hydrationKey);
 	if (existing) return existing;
 	const initialSnapshot = stateAtRequest.layoutSnapshotsByWorkspace[workspaceId];
-	const request = getTransport()
-		.request("layout.get", { workspaceId })
+	const request = requestLayoutGet(workspaceId)
 		.then(async (snapshot) => {
 			const responseState = useAppStore.getState();
 			if (responseState.removedWorkspaceIds[workspaceId]) {
@@ -302,6 +314,53 @@ export function hydrateWorkspaceLayout(workspaceId: string): Promise<WorkspaceLa
 	return request;
 }
 
+const PREWARM_LAYOUT_WORKSPACE_LIMIT = 8;
+const prewarmFlights = new Set<string>();
+
+export function prewarmWorkspaceLayout(workspaceId: string): Promise<void> {
+	const state = useAppStore.getState();
+	if (state.removedWorkspaceIds[workspaceId] || state.layoutDocumentsByWorkspace[workspaceId]) {
+		return Promise.resolve();
+	}
+	const connectionGeneration = state.connectionGeneration;
+	const flightKey = tupleKey("layout-prewarm", workspaceId, String(connectionGeneration));
+	if (prewarmFlights.has(flightKey)) return Promise.resolve();
+	prewarmFlights.add(flightKey);
+	return requestLayoutGet(workspaceId)
+		.then((snapshot) => {
+			const latest = useAppStore.getState();
+			if (
+				!snapshot ||
+				!isConnectedGeneration(latest, connectionGeneration) ||
+				latest.removedWorkspaceIds[workspaceId] ||
+				latest.layoutDocumentsByWorkspace[workspaceId]
+			) {
+				return;
+			}
+			latest.installLayoutSnapshot(snapshot);
+			const current = useAppStore.getState().layoutDocumentsByWorkspace[workspaceId];
+			if (current) installAttentionForDocument(workspaceId, current);
+		})
+		.catch(() => {})
+		.finally(() => {
+			prewarmFlights.delete(flightKey);
+		});
+}
+
+export function useWorkspaceLayoutPrewarm(): void {
+	const status = useAppStore((state) => state.status);
+	const connectionGeneration = useAppStore((state) => state.connectionGeneration);
+	const selectedProjectWorkspaces = useAppStore((state) =>
+		state.selectedProjectId ? state.workspaces[state.selectedProjectId] : undefined,
+	);
+	useEffect(() => {
+		if (status !== "connected" || connectionGeneration === 0 || !selectedProjectWorkspaces) return;
+		for (const workspace of selectedProjectWorkspaces.slice(0, PREWARM_LAYOUT_WORKSPACE_LIMIT)) {
+			void prewarmWorkspaceLayout(workspace.id);
+		}
+	}, [connectionGeneration, selectedProjectWorkspaces, status]);
+}
+
 export function useWorkspaceLayoutSynchronization(workspaceId: string): void {
 	const status = useAppStore((state) => state.status);
 	const connectionGeneration = useAppStore((state) => state.connectionGeneration);
@@ -359,5 +418,7 @@ export function useWorkspaceLayoutSynchronization(workspaceId: string): void {
 export function resetLayoutSyncForTests(): void {
 	hydration.clear();
 	commitQueues.clear();
+	prewarmFlights.clear();
 	layoutReplaceRequesterForTests = null;
+	layoutGetRequesterForTests = null;
 }

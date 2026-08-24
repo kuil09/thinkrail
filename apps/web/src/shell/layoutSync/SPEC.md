@@ -20,13 +20,22 @@ attention when the structural document changes.
   and workspace-removal guards; attention load/persist/reconciliation; and the React lifecycle that starts
   hydration for the mounted workspace.
 - **Public surface (`index.ts`):** the mounted synchronization hook, `commitWorkspaceLayout`, attention
-  persistence, and deterministic test seams for commit/hydration ordering. Conflict-specific commit errors
+  persistence, the read-only layout prewarm (function + shell-mounted hook), and deterministic test seams
+  for commit/hydration ordering. Conflict-specific commit errors
   and internal attention/hydration classifiers remain implementation details of returned promises and hooks.
 - **External deps:** contracts layout types/results; store layout state/actions; transport requests/errors;
   shell-neutral `lib` attention/id helpers; React.
 - **Forbidden:** feature panels, chat/session or terminal lifetime, resource placement policy beyond calling
   the pure layout preset/attention surface, server/shared/pi imports, or automatic retry/rebase of a stale
   full document.
+
+Prewarm is **read-only warming, never creation**: when the selected project's workspace list arrives, the
+shell-mounted prewarm hook fetches the accepted snapshot for the first few workspaces (same limit spirit as
+the watcher prewarm) and installs it plus attention into the store, so switching to a warmed workspace never
+shows the full-screen restore placeholder. A workspace without a host layout is left untouched — only a real
+visit's hydration may instantiate and commit the default preset (with its possible settings side effects) —
+and prewarm never overwrites an already-hydrated document, is single-flight per workspace/connection
+generation, and swallows failures (the real visit surfaces them).
 
 The mounted synchronization hook is **retargetable**: one component instance survives `workspaceId`
 changes (the shell intentionally does not remount the workbench per workspace), so the hook's
