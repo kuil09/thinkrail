@@ -11,8 +11,8 @@ tags: [v1, ui, resilience]
 
 The app's single **error-boundary primitive** — the one thing that keeps a panel's render crash or a
 failed lazy chunk from unmounting the React root — plus the **`CustomIcon`** primitive for the few
-project-custom glyphs Remix lacks. Also houses the `ui/` sub-module (shadcn primitives), which has its
-own spec.
+project-custom glyphs Remix lacks and the shared **loading-skeleton primitive**. Also houses the `ui/`
+sub-module (shadcn primitives), which has its own spec.
 
 ## Boundary
 
@@ -28,8 +28,13 @@ own spec.
   via a CSS `mask-image` span (`.custom-icon*` classes in `index.css`), so a custom glyph sizes with
   `size-*` and colours with `text-*` exactly like a Remix icon. Names are a typed union
   (`CustomIconName`); today: `file-diff-line`/`file-diff-fill` (the Changes tool glyph).
-- **Public surface:** `ErrorBoundary`, `isChunkLoadError` — imported directly via
-  `@/components/ErrorBoundary` (no barrel); `CustomIcon`, `CustomIconName` via `@/components/CustomIcon`. The `ui/` primitives are their own sub-module
+- **Also owns:** `Skeleton.tsx` — `SkeletonRows`, the one pulsing-rows placeholder every loading surface
+  uses (tool panels, project tree expansion, Monaco editor/diff boot, the shell's workbench restore
+  skeleton). One primitive, not per-panel ad-hoc "Loading…" lines: a loading state must occupy
+  content-shaped space so the arriving data replaces it without the layout jumping.
+- **Public surface:** `ErrorBoundary`, `isChunkLoadError`, `SkeletonRows` — imported directly via
+  `@/components/ErrorBoundary` / `@/components/Skeleton` (no barrel); `CustomIcon`, `CustomIconName` via
+  `@/components/CustomIcon`. The `ui/` primitives are their own sub-module
   ([components/ui/SPEC.md](ui/SPEC.md)).
 - **Allowed deps:** React, `@remixicon/react`, `lib` (`shallowEqualArrays` — the reset-keys comparison, shared
   rather than re-stated). Kept dependency-light on purpose, and `lib` is a leaf, so *any* region (shell,
