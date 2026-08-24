@@ -5,7 +5,7 @@ import {
 	RiCircleFill,
 	RiSettings3Line as Settings,
 } from "@remixicon/react";
-import { useEffect, useRef } from "react";
+import { useDeferredValue, useEffect, useRef } from "react";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "../components/ui/resizable";
 import { IconTooltip } from "../components/ui/tooltip";
 import { ProjectTree } from "../panels/ProjectTree";
@@ -45,6 +45,8 @@ export function Shell() {
 	const status = useAppStore((s) => s.status);
 	const StatusDot = status === "connected" ? RiCircleFill : Circle;
 	const activeWorkspaceId = useAppStore((s) => s.activeWorkspaceId);
+	const workbenchWorkspaceId = useDeferredValue(activeWorkspaceId);
+	const switching = workbenchWorkspaceId !== activeWorkspaceId;
 	const activeWorkspace = useAppStore(selectActiveWorkspace);
 	const contextProject = useAppStore(selectContextProject);
 	const { review: openReview } = useOpenBranchReview(activeWorkspace, status);
@@ -171,9 +173,13 @@ export function Shell() {
 				</div>
 				<SettingsDialog layoutSettings={<LayoutSettings />} />
 			</header>
-			{hasActiveWorkspace && activeWorkspaceId ? (
-				<div data-testid="workspace-shell-layout" className="h-full min-h-0 min-w-0">
-					<WorkspaceWorkbench workspaceId={activeWorkspaceId} />
+			{workbenchWorkspaceId ? (
+				<div
+					data-testid="workspace-shell-layout"
+					data-switching={switching || undefined}
+					className="h-full min-h-0 min-w-0"
+				>
+					<WorkspaceWorkbench workspaceId={workbenchWorkspaceId} />
 				</div>
 			) : (
 				<div

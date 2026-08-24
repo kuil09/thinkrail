@@ -706,6 +706,7 @@ interface AppState {
 	navTickByWorkspace: Record<string, number>;
 	closedChatsByWorkspace: Record<string, ClosedChat[]>;
 	chatStartsByWorkspace: Record<string, number>;
+	worktreeCreationsByProject: Record<string, number>;
 	deletedSessionsByWorkspace: Record<string, Record<string, true>>;
 	terminalsByWorkspace: Record<string, TerminalTab[]>;
 	activeTerminalByWorkspace: Record<string, string | null>;
@@ -849,6 +850,8 @@ interface AppState {
 	setActiveTerminalTab: (workspaceId: string, tabKey: string, syncLayout?: boolean) => void;
 	beginChatStart: (workspaceId: string) => void;
 	endChatStart: (workspaceId: string) => void;
+	beginWorktreeCreation: (projectId: string) => void;
+	endWorktreeCreation: (projectId: string) => void;
 	openChatSession: (
 		workspaceId: string,
 		sessionId: string,
@@ -1526,6 +1529,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 	navTickByWorkspace: {},
 	closedChatsByWorkspace: {},
 	chatStartsByWorkspace: {},
+	worktreeCreationsByProject: {},
 	deletedSessionsByWorkspace: Object.create(null) as Record<string, Record<string, true>>,
 	terminalsByWorkspace: {},
 	activeTerminalByWorkspace: {},
@@ -2416,6 +2420,23 @@ export const useAppStore = create<AppState>((set, get) => ({
 						activeTerminalByWorkspace: { ...s.activeTerminalByWorkspace, [workspaceId]: tabKey },
 					},
 		),
+	beginWorktreeCreation: (projectId) =>
+		set((s) => ({
+			worktreeCreationsByProject: {
+				...s.worktreeCreationsByProject,
+				[projectId]: (s.worktreeCreationsByProject[projectId] ?? 0) + 1,
+			},
+		})),
+	endWorktreeCreation: (projectId) =>
+		set((s) => {
+			const remaining = (s.worktreeCreationsByProject[projectId] ?? 0) - 1;
+			return {
+				worktreeCreationsByProject:
+					remaining > 0
+						? { ...s.worktreeCreationsByProject, [projectId]: remaining }
+						: omitKey(s.worktreeCreationsByProject, projectId),
+			};
+		}),
 	beginChatStart: (workspaceId) =>
 		set((s) => ({
 			chatStartsByWorkspace: {

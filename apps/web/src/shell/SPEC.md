@@ -127,12 +127,29 @@ ends seeding.
 The placement intent can then retain hidden/folded geometry, and PTY attach still waits until the visibility
 gate mounts it.
 
+## Async layout rendering
+
+Heavy layout re-renders are **deferred, never blocking**, via `useDeferredValue` over values already
+read from the store — not `startTransition` around store writes: Zustand rides
+`useSyncExternalStore`, and React de-opts any transition containing an external-store update to a
+synchronous render, so a write-side transition silently does nothing. The two defer points: the shell
+passes a deferred `activeWorkspaceId` into `WorkspaceWorkbench` (header/scope react instantly, the old
+workbench stays visible and interactive while the new tree renders at deferred priority;
+`data-switching` marks the transition), and a center group renders its *body* from a deferred selected
+tab (the strip highlights synchronously; the Monaco/xterm/chat mount never blocks the click) — a
+deferred body is used only while it still exists in the group, so closing a tab can't resurrect it.
+Light layout interactions (attention, folds, side visibility) stay synchronous: deferring them adds
+perceived lag and saves nothing.
+
 ## Long-operation feedback
 
 Starting an agent session is seconds-long (watcher readiness + `session.create`), so it is never silent:
 every chat-start path — the empty-center New-chat button, `NewWorkspaceDialog`'s create-and-kick-off flow,
 and reopening a closed chat (`openChatInTab`) — brackets its request with the store's per-workspace
-chat-start counter (`beginChatStart`/`endChatStart`, a counter because starts can overlap). Consumers show
+chat-start counter (`beginChatStart`/`endChatStart`, a counter because starts can overlap); worktree
+creation does the same per-project (`beginWorktreeCreation`/`endWorktreeCreation`), which `ProjectTree`
+renders as a pending row under the project — the list stays put and the new worktree lands where the
+row was. Consumers show
 it as an inline pending state where the result will appear: the empty-center button flips to a disabled
 spinner ("Starting chat…", also the double-click guard), and the chat-history trigger spins while a
 reopened chat hydrates. Workspace removal drops the counter with the rest of the per-workspace state.

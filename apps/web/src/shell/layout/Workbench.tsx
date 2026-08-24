@@ -56,7 +56,16 @@ import type {
 	LayoutToolId,
 	WorkspaceLayoutDocument,
 } from "@thinkrail/contracts";
-import { Fragment, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+	Fragment,
+	type ReactNode,
+	useCallback,
+	useDeferredValue,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import { CustomIcon } from "../../components/CustomIcon";
 import {
 	Command,
@@ -1233,6 +1242,9 @@ function CenterGroupView({
 	};
 	const selectedId = readLayoutSelection(shared.attention, group.id);
 	const selected = group.tabs.find((tab) => tab.id === selectedId) ?? group.tabs[0];
+	const deferredBody = useDeferredValue(selected);
+	const body =
+		deferredBody && group.tabs.some((tab) => tab.id === deferredBody.id) ? deferredBody : selected;
 	const applySelect = (tabId: string, keep?: boolean) => {
 		shared.onUserNavigation();
 		const document = shared.document;
@@ -1303,8 +1315,8 @@ function CenterGroupView({
 				aria-labelledby={selected ? tabDomId(location, selected.id) : undefined}
 				className="relative min-h-0 flex-1 overflow-hidden"
 			>
-				{selected ? (
-					<Fragment key={selected.id}>{shared.renderTabBody(selected)}</Fragment>
+				{body ? (
+					<Fragment key={body.id}>{shared.renderTabBody(body)}</Fragment>
 				) : (
 					renderEmptyCenter(group.id)
 				)}
