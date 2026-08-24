@@ -127,6 +127,16 @@ ends seeding.
 The placement intent can then retain hidden/folded geometry, and PTY attach still waits until the visibility
 gate mounts it.
 
+## Long-operation feedback
+
+Starting an agent session is seconds-long (watcher readiness + `session.create`), so it is never silent:
+every chat-start path — the empty-center New-chat button, `NewWorkspaceDialog`'s create-and-kick-off flow,
+and reopening a closed chat (`openChatInTab`) — brackets its request with the store's per-workspace
+chat-start counter (`beginChatStart`/`endChatStart`, a counter because starts can overlap). Consumers show
+it as an inline pending state where the result will appear: the empty-center button flips to a disabled
+spinner ("Starting chat…", also the double-click guard), and the chat-history trigger spins while a
+reopened chat hydrates. Workspace removal drops the counter with the rest of the per-workspace state.
+
 ## Error resilience
 
 Every independently mounted workbench resource body—including documents, terminals, and singleton tools—has
