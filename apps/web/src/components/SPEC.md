@@ -29,9 +29,13 @@ sub-module (shadcn primitives), which has its own spec.
   `size-*` and colours with `text-*` exactly like a Remix icon. Names are a typed union
   (`CustomIconName`); today: `file-diff-line`/`file-diff-fill` (the Changes tool glyph).
 - **Also owns:** `Skeleton.tsx` — `SkeletonRows`, the one pulsing-rows placeholder every loading surface
-  uses (tool panels, project tree expansion, Monaco editor/diff boot, the shell's workbench restore
-  skeleton). One primitive, not per-panel ad-hoc "Loading…" lines: a loading state must occupy
-  content-shaped space so the arriving data replaces it without the layout jumping.
+  uses (tool panels, project tree expansion, Monaco editor/diff boot, settings lists, plan tabs, the
+  shell's workbench restore skeleton). One primitive, not per-panel ad-hoc "Loading…" lines: a loading
+  state must occupy content-shaped space so the arriving data replaces it without the layout jumping.
+  The app's loading vocabulary is exactly **two-tier**: `SkeletonRows` for a *content region* whose data
+  is on the way, and a `Loader2` spinner (usually beside a short label) for an *in-flight action or
+  transient state* pinned to its control (buttons, menu items, tab-body restores). Bare "Loading…" text
+  without either is a defect.
 - **Public surface:** `ErrorBoundary`, `isChunkLoadError`, `SkeletonRows` — imported directly via
   `@/components/ErrorBoundary` / `@/components/Skeleton` (no barrel); `CustomIcon`, `CustomIconName` via
   `@/components/CustomIcon`. The `ui/` primitives are their own sub-module
