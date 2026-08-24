@@ -74,9 +74,13 @@ frame and re-instantiates every panel (the switch-flicker regression this rule p
 orchestration hook takes `workspaceId` as a retargetable parameter, per-workspace baselines held in refs are
 workspace-stamped, and browser-local UI state that names workspace resources (e.g. the pending tab-focus
 request) is stamped with its workspace and ignored after a switch. Per-workspace tab/group subtrees inside
-the workbench still reconcile away naturally because layout node ids are unique per workspace. Without one,
-it mounts the existing Welcome surface beside the projects navigator using separate client-local
-geometry—there is no workspace layout document to mutate.
+the workbench still reconcile away naturally because layout node ids are unique per workspace. While a
+workspace's layout document is not yet in the store (first visit, brand-new workspace), the shell renders
+the **workbench-shaped restore skeleton** (`WorkbenchSkeleton`): side/center columns sized from the
+resolved default layout preset with pulsing placeholder rows — never a bare full-screen message — so
+hydration replaces the skeleton without the frame jumping. Without one, it mounts the existing Welcome
+surface beside the projects navigator using separate client-local geometry—there is no workspace layout
+document to mutate.
 Toasts mount once above both branches.
 
 The shell is also the sole theme side-effect owner: store receives the host-selected opaque theme through

@@ -74,6 +74,7 @@ import {
 } from "./layoutSync";
 import { syncLegacySelectionFromAttention, useLegacySelectionAdapter } from "./legacySelection";
 import { useTerminalPlacementReconciliation } from "./terminalReconciliation";
+import { WorkbenchSkeleton } from "./WorkbenchSkeleton";
 import { WorkspaceChatHistory } from "./WorkspaceChatHistory";
 
 const ChatView = lazy(() => import("../chat/ChatView"));
@@ -628,11 +629,7 @@ export function WorkspaceWorkbench({ workspaceId }: { workspaceId: string }) {
 	);
 
 	if (!document || !attention) {
-		return (
-			<div className="flex h-full items-center justify-center bg-container-content-bg tr-text-ui text-text-muted">
-				Restoring workspace layout…
-			</div>
-		);
+		return <WorkbenchSkeleton />;
 	}
 
 	return (
