@@ -240,14 +240,14 @@ test("review ops reject diff-less or unknown items; empty feedback is refused", 
 	).toThrow(/must not be empty/);
 });
 
-test("a path-list fallback redo resets the review record (no sha to watermark against)", () => {
+test("a path-list fallback redo resets the review record (no sha to watermark against)", async () => {
 	const store = new TodoStore(repo, SESSION);
 	const todo = store.add({ title: "step" });
 	store.update(todo.id, { status: "in_progress" });
-	reconcileChangeArtifacts(store, repo, SESSION, () => []); // window (clean start)
+	await reconcileChangeArtifacts(store, repo, SESSION, async () => []); // window (clean start)
 	store.update(todo.id, { status: "done" });
 	// No commit fn → path-list fallback.
-	reconcileChangeArtifacts(store, repo, SESSION, () => ["a.ts"]);
+	await reconcileChangeArtifacts(store, repo, SESSION, async () => ["a.ts"]);
 	putReviewRecord(repo, SESSION, todo.id, {
 		state: "reviewed",
 		reviewedShas: [],
@@ -255,9 +255,9 @@ test("a path-list fallback redo resets the review record (no sha to watermark ag
 	});
 	// Re-open and re-work, landing in the fallback again — the stale decision is dropped.
 	store.update(todo.id, { status: "in_progress" });
-	reconcileChangeArtifacts(store, repo, SESSION, () => []);
+	await reconcileChangeArtifacts(store, repo, SESSION, async () => []);
 	store.update(todo.id, { status: "done" });
-	reconcileChangeArtifacts(store, repo, SESSION, () => ["b.ts"]);
+	await reconcileChangeArtifacts(store, repo, SESSION, async () => ["b.ts"]);
 	expect(readReviewRecords(repo, SESSION)[todo.id]).toBeUndefined();
 });
 
@@ -265,7 +265,7 @@ test("todo.remove prunes the item's review record; the plan summary rides listTo
 	const store = new TodoStore(repo, SESSION);
 	const { id } = committedItem(store, "step", "impl.ts");
 	approveTodoReview({ workspaceId: "w1", sessionId: SESSION, id });
-	removeTodo({ workspaceId: "w1", sessionId: SESSION, id });
+	await removeTodo({ workspaceId: "w1", sessionId: SESSION, id });
 	expect(readReviewRecords(repo, SESSION)).toEqual({});
 
 	store.setSummary("Everything landed; suite green.");
@@ -394,9 +394,9 @@ test("the path-list fallback drops the review verdict but preserves the spent au
 	// The worker's redo can't be committed (e.g. a shared window or pre-existing dirty paths), so
 	// reconcile falls back to a `change` path-list artifact instead of a new commit.
 	store.update(id, { status: "in_progress" });
-	reconcileChangeArtifacts(store, repo, SESSION, () => []);
+	await reconcileChangeArtifacts(store, repo, SESSION, async () => []);
 	store.update(id, { status: "done" });
-	reconcileChangeArtifacts(store, repo, SESSION, () => ["fix.ts"]);
+	await reconcileChangeArtifacts(store, repo, SESSION, async () => ["fix.ts"]);
 
 	// The sha-based verdict is honestly reset (no sha to watermark a path-list delta against)...
 	expect(readReviewRecords(repo, SESSION)[id]).toBeUndefined();

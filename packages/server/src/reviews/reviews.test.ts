@@ -330,15 +330,15 @@ test("agent resolve: sent → resolved with note; unknown/duplicate fail loud", 
 	expect(() => resolveCommentFromAgent("sess1", "rc_nope")).toThrow("Unknown review comment");
 });
 
-test("agent resolve is bound to the chat the comment was actually sent to — no other session, sent or not", () => {
-	const comment = addInline();
-	markCommentsSent(WS_ID, [comment.id], "sess1");
+test("agent resolve is bound to the chat the comment was actually sent to — no other session, sent or not", async () => {
+	const comment = await addInline();
+	await markCommentsSent(WS_ID, [comment.id], "sess1");
 	expect(() => resolveCommentFromAgent("sess2", comment.id)).toThrow("not sent to this chat");
 	expect(resolveCommentFromAgent("sess1", comment.id).status).toBe("resolved");
 });
 
-test("a draft finding is unresolvable through resolve_comment even when self-authored by the agent — the reviewer must not clear its own unsent finding", () => {
-	const finding = addComment({
+test("a draft finding is unresolvable through resolve_comment even when self-authored by the agent — the reviewer must not clear its own unsent finding", async () => {
+	const finding = await addComment({
 		workspaceId: WS_ID,
 		kind: "inline",
 		author: "agent",
@@ -350,9 +350,8 @@ test("a draft finding is unresolvable through resolve_comment even when self-aut
 		body: "reviewer finding",
 	});
 	expect(() => resolveCommentFromAgent("reviewer-sess", finding.id)).toThrow("not sent");
-	expect(() => resolveCommentFromAgent("any-sess", addInline("human scratch").id)).toThrow(
-		"not sent",
-	);
+	const scratch = await addInline("human scratch");
+	expect(() => resolveCommentFromAgent("any-sess", scratch.id)).toThrow("not sent");
 });
 
 test("clear archives records, discards drafts, and publishes only the fresh snapshot", async () => {

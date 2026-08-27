@@ -99,9 +99,9 @@ test("legacy workspace records never gain initial-terminal eligibility on read",
 	expect(listWorkspaceRecords("p1").find((candidate) => candidate.id === ws.id)).not.toHaveProperty(
 		"initialTerminalEligible",
 	);
-	expect(listWorkspaces("p1").find((candidate) => candidate.id === ws.id)).not.toHaveProperty(
-		"initialTerminalEligible",
-	);
+	expect(
+		(await listWorkspaces("p1")).find((candidate) => candidate.id === ws.id),
+	).not.toHaveProperty("initialTerminalEligible");
 });
 
 test("createWorkspace branches off a locally-present remote ref without a network fetch", async () => {

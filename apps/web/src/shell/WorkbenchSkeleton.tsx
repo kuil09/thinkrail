@@ -5,7 +5,7 @@ import { resolveLayoutPreset } from "./layout";
 
 function SkeletonStrip() {
 	return (
-		<div className="flex h-panel-header-row shrink-0 items-center border-border-default border-b px-sm">
+		<div className="flex h-panel-header-row shrink-0 items-center border-border-default border-b px-8">
 			<span className="h-3 w-24 animate-pulse rounded-[var(--radius-sm)] bg-control-bg-hovered" />
 		</div>
 	);
@@ -15,7 +15,7 @@ function SkeletonSidePane() {
 	return (
 		<div className="flex h-full min-h-0 flex-col overflow-hidden bg-container-sidebar-bg">
 			<SkeletonStrip />
-			<div className="p-md">
+			<div className="p-12">
 				<SkeletonRows rows={6} />
 			</div>
 		</div>

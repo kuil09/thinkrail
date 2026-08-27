@@ -429,10 +429,10 @@ const handlers: Record<string, Handler> = {
 			throw new Error("This plan's chat is no longer on disk — can't send the fix request.");
 		}
 		const { fixText, findingIds } = await withReviewLock(p.workspaceId, async () => {
-			const findings = itemFixFindings(p);
+			const findings = await itemFixFindings(p);
 			if (findings.length === 0) return { fixText: pkg, findingIds: [] as string[] };
 			const ids = findings.map((c) => c.id);
-			markCommentsSent(p.workspaceId, ids, p.sessionId);
+			await markCommentsSent(p.workspaceId, ids, p.sessionId);
 			return { fixText: `${pkg}\n\n${buildSendPackage(p.workspaceId, findings)}`, findingIds: ids };
 		});
 		fireTodoFixPrompt(p, fixText, previous, findingIds);
@@ -739,10 +739,10 @@ const handlers: Record<string, Handler> = {
 		});
 	},
 
-	"review.get": (params) => {
+	"review.get": async (params) => {
 		const p = params as { workspaceId: string };
 		ensureWatch(p.workspaceId);
-		return markClientStale(getReviewSnapshot(p.workspaceId), p.workspaceId);
+		return markClientStale(await getReviewSnapshot(p.workspaceId), p.workspaceId);
 	},
 	"review.commentAdd": (params) => {
 		const p = params as {

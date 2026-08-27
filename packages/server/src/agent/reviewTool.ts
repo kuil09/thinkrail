@@ -74,13 +74,15 @@ export const AddReviewCommentSchema = Type.Object({
 });
 export type AddReviewCommentParams = Static<typeof AddReviewCommentSchema>;
 
-let addHandler: (sessionId: string, params: AddReviewCommentParams) => { commentId: string } =
-	() => {
-		throw new Error("Review comments are not available on this host.");
-	};
+let addHandler: (
+	sessionId: string,
+	params: AddReviewCommentParams,
+) => Promise<{ commentId: string }> = () => {
+	throw new Error("Review comments are not available on this host.");
+};
 
 export function setAddReviewCommentHandler(
-	fn: (sessionId: string, params: AddReviewCommentParams) => { commentId: string },
+	fn: (sessionId: string, params: AddReviewCommentParams) => Promise<{ commentId: string }>,
 ): void {
 	addHandler = fn;
 }
@@ -99,13 +101,15 @@ export const ReviewVerdictSchema = Type.Object({
 });
 export type ReviewVerdictParams = Static<typeof ReviewVerdictSchema>;
 
-let verdictHandler: (sessionId: string, params: ReviewVerdictParams) => { summary: string } =
-	() => {
-		throw new Error("Review verdicts are not available on this host.");
-	};
+let verdictHandler: (
+	sessionId: string,
+	params: ReviewVerdictParams,
+) => Promise<{ summary: string }> = () => {
+	throw new Error("Review verdicts are not available on this host.");
+};
 
 export function setReviewVerdictHandler(
-	fn: (sessionId: string, params: ReviewVerdictParams) => { summary: string },
+	fn: (sessionId: string, params: ReviewVerdictParams) => Promise<{ summary: string }>,
 ): void {
 	verdictHandler = fn;
 }
@@ -119,7 +123,7 @@ export function createAddReviewCommentTool(): ToolDefinition<typeof AddReviewCom
 		parameters: AddReviewCommentSchema,
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			const p = params as AddReviewCommentParams;
-			const { commentId } = addHandler(ctx.sessionManager.getSessionId(), p);
+			const { commentId } = await addHandler(ctx.sessionManager.getSessionId(), p);
 			return {
 				content: [
 					{
@@ -142,7 +146,7 @@ export function createReviewVerdictTool(): ToolDefinition<typeof ReviewVerdictSc
 		parameters: ReviewVerdictSchema,
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			const p = params as ReviewVerdictParams;
-			const { summary } = verdictHandler(ctx.sessionManager.getSessionId(), p);
+			const { summary } = await verdictHandler(ctx.sessionManager.getSessionId(), p);
 			return {
 				content: [{ type: "text", text: summary }],
 				details: { todoId: p.todoId, verdict: p.verdict },
@@ -171,12 +175,10 @@ export const ReflectFindingSchema = Type.Object({
 });
 export type ReflectFindingParams = Static<typeof ReflectFindingSchema>;
 
-let reflectHandler: (
-	sessionId: string,
-	params: ReflectFindingParams,
-) => Promise<{ body: string }> = () => {
-	throw new Error("Reflection is not available on this host.");
-};
+let reflectHandler: (sessionId: string, params: ReflectFindingParams) => Promise<{ body: string }> =
+	() => {
+		throw new Error("Reflection is not available on this host.");
+	};
 
 export function setReflectFindingHandler(
 	fn: (sessionId: string, params: ReflectFindingParams) => Promise<{ body: string }>,

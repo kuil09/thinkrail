@@ -137,9 +137,7 @@ export async function listTodos(params: {
 			plan.groups.map(async (group) => ({
 				...group,
 				todos: await Promise.all(
-					group.todos.map((t) =>
-						toWireItem(params.workspaceId, t, records[t.id], t.id in pending),
-					),
+					group.todos.map((t) => toWireItem(params.workspaceId, t, records[t.id], t.id in pending)),
 				),
 				status: groupStatus(group),
 			})),

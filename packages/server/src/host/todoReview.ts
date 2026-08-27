@@ -173,8 +173,8 @@ export function markClientStale<T extends ReviewSnapshot>(snapshot: T, workspace
 	};
 }
 
-function itemFindings(p: ItemRef): ReviewComment[] {
-	return getReviewSnapshot(p.workspaceId).comments.filter(
+async function itemFindings(p: ItemRef): Promise<ReviewComment[]> {
+	return (await getReviewSnapshot(p.workspaceId)).comments.filter(
 		(c) =>
 			c.author === "agent" &&
 			c.origin?.todoId === p.id &&
@@ -183,12 +183,12 @@ function itemFindings(p: ItemRef): ReviewComment[] {
 	);
 }
 
-export function itemFixFindings(p: ItemRef): ReviewComment[] {
-	return itemFindings(p).filter((c) => c.status === "draft");
+export async function itemFixFindings(p: ItemRef): Promise<ReviewComment[]> {
+	return (await itemFindings(p)).filter((c) => c.status === "draft");
 }
 
-export function itemOpenFindings(p: ItemRef): ReviewComment[] {
-	return itemFindings(p).filter(
+export async function itemOpenFindings(p: ItemRef): Promise<ReviewComment[]> {
+	return (await itemFindings(p)).filter(
 		(c) => (c.status === "draft" || c.status === "sent") && c.reflection?.verdict !== "refuted",
 	);
 }
@@ -310,7 +310,7 @@ export function handleReviewerSettled(sessionId: string, event: PiEvent): void {
 }
 
 export function installTodoReviewSeams(): void {
-	setAddReviewCommentHandler((reviewerSessionId, params: AddReviewCommentParams) => {
+	setAddReviewCommentHandler(async (reviewerSessionId, params: AddReviewCommentParams) => {
 		const { workspaceId } = reviewerContext(reviewerSessionId);
 		const problem = anchorProblem(workspaceId, params.path, params.startLine);
 		if (problem) throw new Error(problem);
@@ -320,7 +320,7 @@ export function installTodoReviewSeams(): void {
 			throw new Error(
 				"add_review_comment: no review is in flight for this session — the reviewer chat has already settled.",
 			);
-		const comment = addComment({
+		const comment = await addComment({
 			workspaceId,
 			kind: "inline",
 			author: "agent",
@@ -336,7 +336,7 @@ export function installTodoReviewSeams(): void {
 		return { commentId: comment.id };
 	});
 
-	setReviewVerdictHandler((reviewerSessionId, params: ReviewVerdictParams) => {
+	setReviewVerdictHandler(async (reviewerSessionId, params: ReviewVerdictParams) => {
 		const ctx = reviewerContext(reviewerSessionId);
 		const current = currentReview.get(reviewerSessionId);
 		if (!current || current.todoId !== params.todoId) {
@@ -353,7 +353,7 @@ export function installTodoReviewSeams(): void {
 		};
 		const settleQueue = () => onReviewVerdict(ctx.workspaceId, current.sessionId, current.todoId);
 		if (params.verdict === "approve") {
-			const open = itemOpenFindings(ref);
+			const open = await itemOpenFindings(ref);
 			if (open.length > 0) {
 				throw new Error(
 					`review_verdict: ${params.todoId} still has ${open.length} open finding(s) on it ` +
@@ -386,7 +386,7 @@ export function installTodoReviewSeams(): void {
 			autoCycles: 1,
 		});
 		const note = params.note ?? DEFAULT_FIX_NOTE;
-		const candidates = itemFixFindings(ref);
+		const candidates = await itemFixFindings(ref);
 		const pending: PendingFix = {
 			workspaceId: ctx.workspaceId,
 			workerSessionId: ctx.sessionId,
@@ -397,7 +397,7 @@ export function installTodoReviewSeams(): void {
 		};
 		settleQueue();
 		if (candidates.length === 0) {
-			sendReflectedFix(pending);
+			void sendReflectedFix(pending);
 			return {
 				summary: `Verdict recorded: changes requested on ${params.todoId} — no findings to send (auto cycle 1 of 1).`,
 			};
@@ -445,10 +445,10 @@ function renderReflectionPackage(item: Todo, candidates: ReviewComment[]): strin
 	].join("\n");
 }
 
-function sendReflectedFix(pending: PendingFix): void {
+async function sendReflectedFix(pending: PendingFix): Promise<void> {
 	try {
 		const ids = new Set(pending.candidateIds);
-		const surviving = getReviewSnapshot(pending.workspaceId).comments.filter(
+		const surviving = (await getReviewSnapshot(pending.workspaceId)).comments.filter(
 			(c) => ids.has(c.id) && c.status === "draft" && c.reflection?.verdict !== "refuted",
 		);
 		if (pending.candidateIds.length > 0 && surviving.length === 0) {
@@ -469,7 +469,7 @@ function sendReflectedFix(pending: PendingFix): void {
 		}
 		const survivingIds = surviving.map((c) => c.id);
 		if (survivingIds.length > 0)
-			markCommentsSent(pending.workspaceId, survivingIds, pending.workerSessionId);
+			await markCommentsSent(pending.workspaceId, survivingIds, pending.workerSessionId);
 		const fixText =
 			survivingIds.length > 0
 				? `${renderFixPackage(pending.item, pending.note)}\n\n${buildSendPackage(pending.workspaceId, surviving)}`
@@ -507,21 +507,21 @@ function fireReflection(pending: PendingFix, candidates: ReviewComment[]): void 
 			);
 		} catch (err) {
 			pendingFix.delete(reflector.sessionId);
-			sendReflectedFix(pending);
+			void sendReflectedFix(pending);
 			notifyExtUi(
 				pending.reviewerSessionId,
 				`Reflection couldn't start (${err instanceof Error ? err.message : String(err)}) — the fix was sent unreflected.`,
 				"warning",
 			);
 		}
-	})().catch(() => sendReflectedFix(pending));
+	})().catch(() => void sendReflectedFix(pending));
 }
 
 export function maybeResumeReflection(settledSessionId: string): void {
 	const pending = pendingFix.get(settledSessionId);
 	if (!pending) return;
 	pendingFix.delete(settledSessionId);
-	sendReflectedFix(pending);
+	void sendReflectedFix(pending);
 }
 
 export async function maybeAutoReReview(workspaceId: string, sessionId: string): Promise<void> {

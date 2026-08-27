@@ -203,7 +203,7 @@ export async function openPr(
 	const cwd = ws.worktreePath;
 	const origin = git(cwd, ["remote", "get-url", "origin"]);
 	if (!origin.ok) throw new Error("This workspace's repository has no 'origin' remote to push to.");
-	const dirtyFiles = gitStatus(params.workspaceId, { kind: "uncommitted" }).changes.length;
+	const dirtyFiles = (await gitStatus(params.workspaceId, { kind: "uncommitted" })).changes.length;
 	const hasSshCommandConfig = git(cwd, ["config", "core.sshCommand"]).ok;
 	const pushed = await gitAsync(cwd, ["push", "--set-upstream", "origin", ws.branch], {
 		env: nonInteractiveGitEnv(process.env, hasSshCommandConfig),
