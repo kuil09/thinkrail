@@ -37,7 +37,7 @@ convention; their boundary is held by convention + spec. Sibling edges live here
 | `chat` | pi conversation UI primitives: content-block renderers + the tool-renderer registry | no | [chat/SPEC.md](src/chat/SPEC.md) |
 | `auth` | in-app provider login: the presentational OAuth dialog + its client-side state reducer | yes | [auth/SPEC.md](src/auth/SPEC.md) |
 | `shell` | the responsive frame + synchronized workbench composition (with bounded child `layout/`) | no | [shell/SPEC.md](src/shell/SPEC.md) |
-| `components` | the app's single `ErrorBoundary` primitive (contains the `ui/` sub-module) | no | [components/SPEC.md](src/components/SPEC.md) |
+| `components` | dependency-light shared React primitives: error isolation, custom icons, quiet scroll frames (contains `ui/`) | no | [components/SPEC.md](src/components/SPEC.md) |
 | `components/ui` | shadcn primitives, themed with our tokens | no | [components/ui/SPEC.md](src/components/ui/SPEC.md) |
 | `themes` | validated single-file manifests, bundled catalog + atomic token application | yes | [themes/SPEC.md](src/themes/SPEC.md) |
 | `lib` | `cn()` + the shared UI/path/array primitives + highlighting | yes | [lib/SPEC.md](src/lib/SPEC.md) |
@@ -69,9 +69,9 @@ return to stable.
 ### Dependency graph
 
 - `navigation` → `store`, `transport`, `contracts` (type-only); neither dependency imports it, and `main.tsx` initializes the integration
-- `shell` → child `shell/layout`, `panels`, `chat` (app-integration render/hydration only), `store`, `transport`, `contracts` (type-only), `components/ui`, `components` (`ErrorBoundary` around each mounted region), `constants`, `lib` (platform shortcut semantics), `themes` (the single owner of the atomic `applyTheme` DOM effect, driven by `store.theme`)
+- `shell` → child `shell/layout`, `panels`, `chat` (app-integration render/hydration only), `store`, `transport`, `contracts` (type-only), `components/ui`, `components` (`ErrorBoundary` around each mounted region + `QuietScrollArea` around shell-owned tool bodies), `constants`, `lib` (platform shortcut semantics), `themes` (the single owner of the atomic `applyTheme` DOM effect, driven by `store.theme`)
 - `shell/layout` → `contracts` (types only), `lib` (attention/id primitives), and React / `react-resizable-panels` / `@dnd-kit/core`; the parent injects store state, commit callbacks, and feature renderers, so the child has no feature-module runtime edge
-- `panels` → `store`, `transport`, `components/ui`, `components` (`ErrorBoundary` for feature bodies), `lib`, `contracts`, `constants` (`WelcomePanel`'s wordmark), `chat` (`NewWorkspaceDialog` eagerly reuses `chat/ModelSelector`+`ThinkingSelector`+`useModelCatalog` — these are shiki-free, so the eager import stays split-safe; `TemplatesSettings` reuses `chat/TemplateEditorDialog` for its New/Edit flows — see `panels/SPEC.md`'s `TemplatesSettings` paragraph), `auth` (`ProvidersSettings` mounts `auth/LoginDialog`), `themes` (`AppearanceSettings` consumes the live catalog; code surfaces consume generic theme variables/syntax mapping)
+- `panels` → `store`, `transport`, `components/ui`, `components` (`ErrorBoundary` for feature bodies + quiet scroll surfaces for panel-owned lists/xterm), `lib`, `contracts`, `constants` (`WelcomePanel`'s wordmark), `chat` (`NewWorkspaceDialog` eagerly reuses `chat/ModelSelector`+`ThinkingSelector`+`useModelCatalog` — these are shiki-free, so the eager import stays split-safe; `TemplatesSettings` reuses `chat/TemplateEditorDialog` for its New/Edit flows — see `panels/SPEC.md`'s `TemplatesSettings` paragraph), `auth` (`ProvidersSettings` mounts `auth/LoginDialog`), `themes` (`AppearanceSettings` consumes the live catalog; code surfaces consume generic theme variables/syntax mapping)
 - `chat` → `contracts` (pi message types, **type-only**), `components/ui`, `lib`; `store` + `transport`
   (**app-integration files only** — the renderers stay store-free; see `chat/SPEC.md` for the current set)
 - `auth` → `components/ui` (the dialog is store/transport-free — the panel integrates it; the state types need no imports)

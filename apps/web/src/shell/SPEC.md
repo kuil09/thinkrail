@@ -24,8 +24,8 @@ must not inherit desktop docking accidentally.
   and region error boundaries.
 - **Public surface:** `Shell`.
 - **Allowed deps:** child `layout`; `panels`; `chat` app-integration hydration/rendering; `store`,
-  `transport`, contracts (types only), `components/ui`, `components/ErrorBoundary`, `constants`, `lib`, and
-  `themes`.
+  `transport`, contracts (types only), `components/ui`, `components/ErrorBoundary`,
+  `components/QuietScrollArea`, `constants`, `lib`, and `themes`.
 - **Forbidden:** server/shared/pi imports; being imported by panels/store/transport; putting arrangement
   knowledge into a feature panel.
 
@@ -66,10 +66,13 @@ progressive responsive degradation. A selected project without an active workspa
 No selected project leaves the logo alone.
 
 With an active workspace, `Shell` mounts the synchronized workbench from `layout/`; the workbench owns all
-center and left/right/bottom auxiliary geometry, alignment, and visibility. Without one, it mounts the
-existing Welcome surface beside the projects navigator using separate client-local geometry—there is no
-workspace layout document to mutate.
-Toasts mount once above both branches.
+center and left/right/bottom auxiliary geometry, alignment, and visibility. The shell-owned wrappers around
+Projects, Files, and Specs use `components/QuietScrollArea` because those feature views intentionally expose
+content rather than owning their container scroller; the Project Home navigator uses the same wrapper.
+Changes/Review and xterm own their internal scroll surface in `panels`. None of these primitives receives or
+infers a left/right/bottom placement. Without an active workspace, the shell mounts the existing Welcome
+surface beside the projects navigator using separate client-local geometry—there is no workspace layout
+document to mutate. Toasts mount once above both branches.
 
 The shell is also the sole theme side-effect owner: store receives the host-selected opaque theme through
 transport; shell applies it atomically through `themes` and writes the local first-paint hint. No other
