@@ -107,8 +107,10 @@ and Central fixture artifacts. The transform cache is lane-local because Playwri
 single runner process; sharing it lets a cold shard consume another shard's partially written transform. The
 lane's fake executable directory lives under `.bun/bin`: this intentionally marks the injected,
 hermetic host `PATH` as complete to `resolveShellEnv()`, preventing login-shell repair from replacing the
-Central/editor stubs with developer-machine executables. Port allocation remains stable and collision-safe
-across worktrees: the registry claim distinguishes
+Central/editor stubs with developer-machine executables. The host also receives empty `DISPLAY` and
+`WAYLAND_DISPLAY`: normal folder selection comes from its picker control file, while an empty control value
+exercises the real headless-failure recovery without reaching a developer display. Port allocation remains
+stable and collision-safe across worktrees: the registry claim distinguishes
 a lane's logical key while checking staleness against the real worktree path. Legacy plain-path claims are
 still valid.
 
