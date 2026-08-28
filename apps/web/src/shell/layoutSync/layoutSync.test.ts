@@ -6,6 +6,7 @@ import type {
 	WorkspaceLayoutSnapshot,
 } from "@thinkrail/contracts";
 import { useAppStore } from "../../store";
+import { instantiateLayoutPreset, resolveLayoutPreset } from "../layout";
 import {
 	commitWorkspaceLayout,
 	hydrateWorkspaceLayout,
@@ -44,6 +45,7 @@ beforeEach(() => {
 	resetLayoutSyncForTests();
 	useAppStore.setState({
 		removedWorkspaceIds: {},
+		freshWorkspaceIds: {},
 		layoutSnapshotsByWorkspace: {},
 		layoutDocumentsByWorkspace: {},
 		layoutAttentionByWorkspace: {},
@@ -369,6 +371,31 @@ describe("synchronized layout store", () => {
 	test("removed workspaces reject hydration before issuing any transport work", async () => {
 		useAppStore.setState({ removedWorkspaceIds: { ws: true } });
 		await expect(hydrateWorkspaceLayout("ws")).rejects.toThrow("Workspace has been removed");
+	});
+
+	test("a workspace marked fresh skips the host read and installs the default preset directly", async () => {
+		useAppStore.setState({
+			status: "connected",
+			connectionGeneration: 1,
+			freshWorkspaceIds: { ws: true },
+		});
+		setLayoutGetRequesterForTests(async () => {
+			throw new Error("a fresh workspace must never read the host layout");
+		});
+		setLayoutReplaceRequesterForTests(async (params) => ({
+			status: "accepted",
+			payload: {
+				snapshot: { workspaceId: "ws", revision: 1, document: params.document },
+				mutationId: params.mutationId,
+			},
+		}));
+		const settings = useAppStore.getState().layoutSettings;
+		const preset = resolveLayoutPreset(settings.defaultPresetId, settings.customPresets);
+		const expected = instantiateLayoutPreset(preset);
+		const result = await hydrateWorkspaceLayout("ws");
+		expect(result).toEqual(expected);
+		expect(useAppStore.getState().layoutDocumentsByWorkspace.ws).toEqual(expected);
+		expect(useAppStore.getState().freshWorkspaceIds.ws).toBeUndefined();
 	});
 
 	test("prewarm installs the host snapshot and attention without a mounted workbench", async () => {

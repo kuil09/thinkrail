@@ -166,6 +166,7 @@ export function ProjectTree() {
 		const store = useAppStore.getState();
 		store.expandProject(workspace.projectId);
 		store.setWorkspaces(workspace.projectId, rows);
+		store.markWorkspaceFresh(attached.id);
 		store.activateWorkspace(attached);
 	};
 

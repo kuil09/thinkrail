@@ -268,6 +268,7 @@ export function NewWorkspaceDialog({
 		const store = useAppStore.getState();
 		if (target === "worktree") {
 			onCreated(workspace);
+			store.markWorkspaceFresh(workspace.id);
 			store.activateWorkspace(workspace);
 		}
 		onOpenChange(false);

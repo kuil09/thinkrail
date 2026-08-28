@@ -112,6 +112,12 @@ snapshots plus device-local attention, terminal catalogs, and one **per-session 
   `clearWorkspaceTabs` removes the snapshot and all associated local state when the workspace itself
   disappears. A page-lifetime `removedWorkspaceIds` tombstone then rejects stale layout, catalog, session,
   cache, and workspace-list arrivals, so an already-in-flight read cannot recreate the removed workspace.
+  **`freshWorkspaceIds`** is a one-shot, session-local counterpart: **`markWorkspaceFresh(workspaceId)`**,
+  called by the panel that just created or attached a workspace (never for `enterDefaultWorkspace`'s
+  pre-existing singleton), tells `shell/layoutSync`'s hydration that this workspace has no host layout worth
+  asking for, so it can install the default preset without a network round trip first. It is a plain marker,
+  not host truth — `clearWorkspaceFresh(workspaceId)` consumes it on the first hydration attempt (`clearWorkspaceTabs`
+  also drops it on removal), so a later reconnect or reload always reads the real host state.
 
   **Browser-local resource render state** is keyed by workspace + canonical resource id, never embedded in
   the shared layout reference: loaded file/diff content and ticks, editor view modes, live chat runtimes, and

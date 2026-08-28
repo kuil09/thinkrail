@@ -688,6 +688,7 @@ interface AppState {
 	recentProjects: Project[];
 	workspaces: Record<string, Workspace[]>;
 	removedWorkspaceIds: Record<string, true>;
+	freshWorkspaceIds: Record<string, true>;
 	expandedProjectIds: Record<string, true>;
 	selectedProjectId: string | null;
 	activeWorkspaceId: string | null;
@@ -768,6 +769,8 @@ interface AppState {
 	expandProject: (projectId: string) => void;
 	hydrateExpandedProjects: (projectIds: readonly string[]) => void;
 	selectMain: () => void;
+	markWorkspaceFresh: (workspaceId: string) => void;
+	clearWorkspaceFresh: (workspaceId: string) => void;
 	activateWorkspace: (workspace: Pick<Workspace, "id" | "projectId">) => void;
 	activateWorkspaceFromRoute: (
 		workspace: Pick<Workspace, "id" | "projectId">,
@@ -1511,6 +1514,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 	recentProjects: [],
 	workspaces: {},
 	removedWorkspaceIds: Object.create(null) as Record<string, true>,
+	freshWorkspaceIds: Object.create(null) as Record<string, true>,
 	expandedProjectIds: Object.create(null) as Record<string, true>,
 	selectedProjectId: null,
 	activeWorkspaceId: null,
@@ -1718,6 +1722,16 @@ export const useAppStore = create<AppState>((set, get) => ({
 		})),
 	selectMain: () =>
 		set({ selectedProjectId: null, activeWorkspaceId: null, routeChatTarget: null }),
+	markWorkspaceFresh: (workspaceId) =>
+		set((state) => ({
+			freshWorkspaceIds: { ...state.freshWorkspaceIds, [workspaceId]: true as const },
+		})),
+	clearWorkspaceFresh: (workspaceId) =>
+		set((state) =>
+			state.freshWorkspaceIds[workspaceId]
+				? { freshWorkspaceIds: omitKey(state.freshWorkspaceIds, workspaceId) }
+				: {},
+		),
 	activateWorkspace: (workspace) =>
 		set((state) =>
 			state.removedWorkspaceIds[workspace.id]
@@ -2250,6 +2264,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 				chatStartsByWorkspace: omitKey(s.chatStartsByWorkspace, workspaceId),
 				terminalsByWorkspace: omitKey(s.terminalsByWorkspace, workspaceId),
 				activeTerminalByWorkspace: omitKey(s.activeTerminalByWorkspace, workspaceId),
+				freshWorkspaceIds: omitKey(s.freshWorkspaceIds, workspaceId),
 				sessions,
 				skillsSyncedTickBySession,
 			};

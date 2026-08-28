@@ -39,6 +39,16 @@ visit's hydration may instantiate and commit the default preset (with its possib
 and prewarm never overwrites an already-hydrated document, is single-flight per workspace/connection
 generation, and swallows failures (the real visit surfaces them).
 
+A workspace this client just created (`workspace.create`, an attached existing worktree, never `enterDefaultWorkspace`
+returning the pre-existing singleton) has no host layout to ask for — `store.freshWorkspaceIds` marks it, set by
+the panel that made the create/attach call before activating it. `hydrateWorkspaceLayout` checks the mark before
+issuing the host read: when set, it skips `requestLayoutGet` entirely and falls straight into the same
+default-preset instantiate-and-commit path a `null` response would have reached, so the first activation of a
+brand-new workspace installs its document in the same synchronous tick as `activateWorkspace` (no restore-skeleton
+window) instead of after a network round trip that can only ever come back empty. The mark is consumed (cleared)
+on that first hydration attempt regardless of outcome, so a later reconnect or reload for the same workspace goes
+through the normal host read.
+
 The mounted synchronization hook is **retargetable**: one component instance survives `workspaceId`
 changes (the shell intentionally does not remount the workbench per workspace), so the hook's
 attention-reconciliation baseline is workspace-stamped — switching workspaces re-enters the

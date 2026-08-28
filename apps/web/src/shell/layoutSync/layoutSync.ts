@@ -246,7 +246,9 @@ export function hydrateWorkspaceLayout(workspaceId: string): Promise<WorkspaceLa
 	const existing = hydration.get(hydrationKey);
 	if (existing) return existing;
 	const initialSnapshot = stateAtRequest.layoutSnapshotsByWorkspace[workspaceId];
-	const request = requestLayoutGet(workspaceId)
+	const isFresh = stateAtRequest.freshWorkspaceIds[workspaceId] === true;
+	const readSnapshot = isFresh ? Promise.resolve(null) : requestLayoutGet(workspaceId);
+	const request = readSnapshot
 		.then(async (snapshot) => {
 			const responseState = useAppStore.getState();
 			if (responseState.removedWorkspaceIds[workspaceId]) {
@@ -255,6 +257,7 @@ export function hydrateWorkspaceLayout(workspaceId: string): Promise<WorkspaceLa
 			if (!isConnectedGeneration(responseState, connectionGeneration)) {
 				throw new SupersededLayoutHydrationError();
 			}
+			if (isFresh) useAppStore.getState().clearWorkspaceFresh(workspaceId);
 			if (snapshot) {
 				const state = useAppStore.getState();
 				const previousDocument = state.layoutDocumentsByWorkspace[workspaceId];
