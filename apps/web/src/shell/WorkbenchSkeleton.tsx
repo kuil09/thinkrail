@@ -47,10 +47,10 @@ export function WorkbenchSkeleton() {
 					defaultSize={100 - leftSize - rightSize}
 					className="border-border-default border-x"
 				>
-					<div className="flex h-full min-h-0 flex-col bg-container-content-bg">
+					<div className="flex h-full min-h-0 flex-col overflow-hidden bg-container-content-bg">
 						<SkeletonStrip />
-						<div className="flex flex-1 items-center justify-center">
-							<span className="tr-text-ui text-text-muted">Restoring workspace…</span>
+						<div className="p-16">
+							<SkeletonRows rows={12} />
 						</div>
 					</div>
 				</ResizablePanel>
