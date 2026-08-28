@@ -23,7 +23,7 @@ import {
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { DropdownMenuItem } from "../components/ui/dropdown-menu";
 import { IconTooltip } from "../components/ui/tooltip";
-import { type LayoutAttention, layoutResourceIdentity } from "../lib";
+import { type LayoutAttention, layoutResourceIdentity, tupleKey } from "../lib";
 import { ChangesPanel } from "../panels/ChangesPanel";
 import { DiffPane } from "../panels/DiffPane";
 import { FilePane } from "../panels/FilePane";
@@ -241,7 +241,7 @@ export function WorkspaceWorkbench({ workspaceId }: { workspaceId: string }) {
 	);
 	const focusRequest =
 		focusRequestState?.workspaceId === workspaceId ? focusRequestState.request : null;
-	const attemptedInitialTerminalGeneration = useRef<number | null>(null);
+	const attemptedInitialTerminalKey = useRef<string | null>(null);
 	const activeReviewedPath = useAppStore((state) => selectActiveReviewedPath(state, workspaceId));
 	const readActiveReviewedPath = useCallback(
 		() => selectActiveReviewedPath(useAppStore.getState(), workspaceId),
@@ -352,17 +352,22 @@ export function WorkspaceWorkbench({ workspaceId }: { workspaceId: string }) {
 		const placedTerminal = collectAllGroups(document)
 			.flatMap((group) => group.tabs)
 			.some((tab) => tab.kind === "terminal");
+		const initialTerminalKey = tupleKey(
+			"initial-terminal",
+			workspaceId,
+			String(connectionGeneration),
+		);
 		if (
 			terminals.length > 0 ||
 			placedTerminal ||
-			attemptedInitialTerminalGeneration.current === connectionGeneration
+			attemptedInitialTerminalKey.current === initialTerminalKey
 		) {
 			return;
 		}
 		const preferredId = attention.lastFocusedSideGroupId.bottom;
 		const target =
 			document.bottom.groups.find((group) => group.id === preferredId) ?? document.bottom.groups[0];
-		attemptedInitialTerminalGeneration.current = connectionGeneration;
+		attemptedInitialTerminalKey.current = initialTerminalKey;
 		useAppStore
 			.getState()
 			.addTerminal(workspaceId, undefined, target?.id, "bottom", false, INITIAL_TERMINAL_TAB_KEY);

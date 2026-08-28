@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { expect, type Locator, type Page, test } from "@playwright/test";
 import type { WorkspaceLayoutSnapshot } from "@thinkrail/contracts";
 import {
+	createWorkspaceViaDialog,
 	defaultWorkspaceRow,
 	enterDefaultWorkspace,
 	openFixtureProject,
@@ -277,6 +278,18 @@ test("a new workspace starts with one accessible terminal group in a 30% bottom 
 	await expect(bottom.getByRole("tab", { name: /Terminal 1/ })).toBeFocused();
 	await page.keyboard.press("Control+Shift+F6");
 	await expect(page.getByTestId("tab-changes").getByRole("tab")).toBeFocused();
+});
+
+test("a second freshly created worktree seeds its own initial terminal in the same connection", async ({
+	page,
+}) => {
+	await openDefaultWorkbench(page);
+	await expect(bottomGroups(page).getByTestId("terminal-tab")).toHaveCount(1);
+
+	await createWorkspaceViaDialog(page);
+	await waitTerminalReady(page);
+	await waitForLayoutSettled(page);
+	await expect(bottomGroups(page).getByTestId("terminal-tab")).toHaveCount(1);
 });
 
 test("a hidden default reserves one synchronized terminal placement without attaching until shown", async ({
