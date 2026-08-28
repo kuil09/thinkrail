@@ -578,7 +578,7 @@ export function WorkspaceWorkbench({ workspaceId }: { workspaceId: string }) {
 				case "files":
 					body = (
 						<div className="p-12">
-							<FileTree key={workspaceId} workspaceId={workspaceId} />
+							<FileTree workspaceId={workspaceId} />
 						</div>
 					);
 					break;

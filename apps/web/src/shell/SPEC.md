@@ -73,8 +73,19 @@ center and left/right/bottom auxiliary geometry, alignment, and visibility. `Wor
 frame and re-instantiates every panel (the switch-flicker regression this rule pins); instead, every
 orchestration hook takes `workspaceId` as a retargetable parameter, per-workspace baselines held in refs are
 workspace-stamped, and browser-local UI state that names workspace resources (e.g. the pending tab-focus
-request) is stamped with its workspace and ignored after a switch. Per-workspace tab/group subtrees inside
-the workbench still reconcile away naturally because layout node ids are unique per workspace. While a
+request) is stamped with its workspace and ignored after a switch. Default-layout side/bottom/center group
+ids are **stable by role, not random**: `instantiateLayoutPreset`/`applyLayoutPreset` (`layout/presets.ts`)
+reuse each preset's own declared group/node id instead of minting a fresh one per instantiation, so two
+workspaces on the same (built-in or custom) preset carry identical structural ids. Combined with
+`ResizablePanelGroup`s syncing server-authoritative sizes imperatively (`ImperativePanelGroupHandle.setLayout`
+in a `useEffect`, mirroring the outer split) instead of remounting via a `key` that embeds the
+remote-revision epoch, switching workspace no longer remounts the side/bottom chrome or the tool panels
+inside it (Projects, Files, Changes, Review, Specs, terminals) — only the resource bodies whose identity
+actually differs (a different session, file, or diff) remount, per [[submodule-web-shell-layout]]'s "Async
+layout rendering". `remoteEpoch` still drives `useCommittedSizes`' stale-gesture cancellation (unrelated to
+mount identity) and the workbench's own topology remount when a structural shape genuinely changes (a group
+created, folded, or removed). A custom preset likewise carries the ids it was captured with
+(`captureLayoutPreset`), so re-applying it elsewhere reconciles the same way. While a
 workspace's layout document is not yet in the store (first visit, brand-new workspace), the shell renders
 the **workbench-shaped restore skeleton** (`WorkbenchSkeleton`): side/center columns sized from the
 resolved default layout preset with pulsing placeholder rows — never a bare full-screen message — so

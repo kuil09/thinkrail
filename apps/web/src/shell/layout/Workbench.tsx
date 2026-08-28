@@ -1400,7 +1400,7 @@ function CenterSplitView({
 	...shared
 }: Omit<CenterNodeProps, "node"> & { node: LayoutCenterSplit }) {
 	const size = useElementSize();
-	const weights = node.weights.map((weight) => weight * 100);
+	const weights = useMemo(() => node.weights.map((weight) => weight * 100), [node.weights]);
 	const resize = useCommittedSizes(
 		weights,
 		remoteEpoch,
@@ -1410,6 +1410,11 @@ function CenterSplitView({
 		},
 		shared.onRemoteGestureCanceled,
 	);
+	const groupRef = useRef<ImperativePanelGroupHandle>(null);
+	useEffect(() => {
+		const group = groupRef.current;
+		if (group && !sameSizes(group.getLayout(), weights)) group.setLayout(weights);
+	}, [weights]);
 	const dimension = node.direction === "horizontal" ? size.width : size.height;
 	const minimumPixels =
 		node.direction === "horizontal" ? LAYOUT_LIMITS.minCenterWidth : LAYOUT_LIMITS.minCenterHeight;
@@ -1417,7 +1422,8 @@ function CenterSplitView({
 	return (
 		<div ref={size.ref} className="h-full min-h-0 min-w-0 overflow-hidden">
 			<ResizablePanelGroup
-				key={tupleKey("center-split", node.id, String(remoteEpoch))}
+				ref={groupRef}
+				key={node.id}
 				direction={node.direction}
 				onLayout={resize.onLayout}
 				className="min-h-0 min-w-0"
@@ -1705,6 +1711,15 @@ function SideStack({
 			? (LAYOUT_LIMITS.minSideBodyHeight / size.height) * 100
 			: Math.min(4, equalShare);
 	const foldedSpacerPercent = Math.max(0, 100 - foldedCount * foldedPercent);
+	const targetLayout = region.groups.map((group, index) =>
+		group.folded ? foldedPercent : (current[index] ?? 0),
+	);
+	if (expandedCount === 0 && foldedSpacerPercent > 0) targetLayout.push(foldedSpacerPercent);
+	const groupRef = useRef<ImperativePanelGroupHandle>(null);
+	useEffect(() => {
+		const group = groupRef.current;
+		if (group && !sameSizes(group.getLayout(), targetLayout)) group.setLayout(targetLayout);
+	});
 	return (
 		<aside
 			ref={size.ref}
@@ -1713,12 +1728,8 @@ function SideStack({
 			className="relative h-full min-h-0 overflow-hidden"
 		>
 			<ResizablePanelGroup
-				key={tupleKey(
-					"side-stack",
-					side,
-					String(remoteEpoch),
-					...region.groups.flatMap((group) => [group.id, String(group.folded)]),
-				)}
+				ref={groupRef}
+				key={tupleKey("side-stack", side, ...region.groups.map((group) => group.id))}
 				direction="vertical"
 				onLayout={(sizes) => resize.onLayout(sizes.slice(0, region.groups.length))}
 			>
@@ -2102,6 +2113,15 @@ function BottomStack({
 			? (LAYOUT_LIMITS.minBottomGroupWidth / size.width) * 100
 			: Math.min(4, equalShare);
 	const foldedSpacerPercent = Math.max(0, 100 - foldedCount * foldedPercent);
+	const targetLayout = region.groups.map((group, index) =>
+		group.folded ? foldedPercent : (current[index] ?? 0),
+	);
+	if (expandedCount === 0 && foldedSpacerPercent > 0) targetLayout.push(foldedSpacerPercent);
+	const groupRef = useRef<ImperativePanelGroupHandle>(null);
+	useEffect(() => {
+		const group = groupRef.current;
+		if (group && !sameSizes(group.getLayout(), targetLayout)) group.setLayout(targetLayout);
+	});
 	return (
 		<aside
 			ref={size.ref}
@@ -2110,11 +2130,8 @@ function BottomStack({
 			className="relative h-full min-h-0 min-w-0 overflow-hidden"
 		>
 			<ResizablePanelGroup
-				key={tupleKey(
-					"bottom-stack",
-					String(remoteEpoch),
-					...region.groups.flatMap((group) => [group.id, String(group.folded)]),
-				)}
+				ref={groupRef}
+				key={tupleKey("bottom-stack", ...region.groups.map((group) => group.id))}
 				direction="horizontal"
 				onLayout={(sizes) => resize.onLayout(sizes.slice(0, region.groups.length))}
 			>
@@ -2659,7 +2676,6 @@ export function Workbench({
 		"outer-workbench",
 		String(leftOwnsBottomCorner),
 		String(rightOwnsBottomCorner),
-		String(remoteEpoch),
 	);
 	const [alignedProjection, setAlignedProjection] = useState({
 		topology: outerTopology,
@@ -2945,12 +2961,7 @@ export function Workbench({
 	const alignedTopRow = (
 		<ResizablePanelGroup
 			ref={alignedRowGroupRef}
-			key={tupleKey(
-				"aligned-workbench-row",
-				String(leftInAlignedRow),
-				String(rightInAlignedRow),
-				String(remoteEpoch),
-			)}
+			key={tupleKey("aligned-workbench-row", String(leftInAlignedRow), String(rightInAlignedRow))}
 			direction="horizontal"
 			onLayout={alignedRowResize.onLayout}
 			className="h-full min-h-0 min-w-0"
@@ -3010,7 +3021,7 @@ export function Workbench({
 	const alignedColumn = bottomVisible ? (
 		<ResizablePanelGroup
 			ref={bottomGroupRef}
-			key={tupleKey("workbench-bottom", String(remoteEpoch))}
+			key="workbench-bottom"
 			direction="vertical"
 			onLayout={bottomResize.onLayout}
 			className="min-h-0 min-w-0 flex-1"

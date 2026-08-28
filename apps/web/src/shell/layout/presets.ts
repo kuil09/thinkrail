@@ -149,13 +149,15 @@ function restoreTargetsForPreset(
 	);
 }
 
+const DEFAULT_CENTER_GROUP_ID = "center";
+
 function instantiateSide(
 	region: LayoutPresetSideRegion,
 	resolveTool: (tool: LayoutToolId) => ReturnType<typeof toolTab> = toolTab,
 ): LayoutSideRegion {
 	const weightTotal = region.groups.reduce((sum, candidate) => sum + candidate.weight, 0);
 	const groups: LayoutSideGroup[] = region.groups.map((candidate) => ({
-		id: createLayoutId("side"),
+		id: candidate.id,
 		weight: candidate.weight / weightTotal,
 		folded: candidate.folded,
 		tabs: candidate.tools.map(resolveTool),
@@ -169,7 +171,7 @@ function instantiateBottom(
 ): LayoutBottomRegion {
 	const weightTotal = region.groups.reduce((sum, candidate) => sum + candidate.weight, 0);
 	const groups = region.groups.map((candidate) => ({
-		id: createLayoutId("bottom"),
+		id: candidate.id,
 		weight: candidate.weight / weightTotal,
 		folded: candidate.folded,
 		tabs: candidate.tools.map(resolveTool),
@@ -185,7 +187,7 @@ function instantiateBottom(
 export function instantiateLayoutPreset(preset: LayoutPreset): WorkspaceLayoutDocument {
 	return {
 		version: 2,
-		center: { kind: "group", id: createLayoutId("center"), tabs: [] },
+		center: { kind: "group", id: DEFAULT_CENTER_GROUP_ID, tabs: [] },
 		left: instantiateSide(preset.left),
 		right: instantiateSide(preset.right),
 		bottom: instantiateBottom(preset.bottom),
@@ -217,7 +219,7 @@ function fillPresetCenter(
 	if (node.kind === "group") {
 		const tabs = buckets[cursor.value] ?? [];
 		cursor.value += 1;
-		return tabs.length > 0 ? { kind: "group", id: createLayoutId("center"), tabs } : null;
+		return tabs.length > 0 ? { kind: "group", id: node.id, tabs } : null;
 	}
 	const first = fillPresetCenter(node.children[0], buckets, cursor);
 	const second = fillPresetCenter(node.children[1], buckets, cursor);
@@ -226,7 +228,7 @@ function fillPresetCenter(
 	const total = node.weights[0] + node.weights[1];
 	return {
 		kind: "split",
-		id: createLayoutId("split"),
+		id: node.id,
 		direction: node.direction,
 		weights: [node.weights[0] / total, node.weights[1] / total],
 		children: [first, second],
@@ -295,7 +297,7 @@ export function applyLayoutPreset(
 		else buckets[0]?.push(tab);
 	}
 	const filled = fillPresetCenter(preset.center, buckets, { value: 0 });
-	const fallback = { kind: "group" as const, id: createLayoutId("center"), tabs: [] };
+	const fallback = { kind: "group" as const, id: DEFAULT_CENTER_GROUP_ID, tabs: [] };
 	const center = filled ?? fallback;
 	const allTabs = collectAllGroups(document).flatMap((group) => group.tabs);
 	const existingTools = new Map(
