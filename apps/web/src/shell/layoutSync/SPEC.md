@@ -29,10 +29,12 @@ attention when the structural document changes.
   the pure layout preset/attention surface, server/shared/pi imports, or automatic retry/rebase of a stale
   full document.
 
-Prewarm is **read-only warming, never creation**: when the selected project's workspace list arrives, the
-shell-mounted prewarm hook fetches the accepted snapshot for the first few workspaces (same limit spirit as
-the watcher prewarm) and installs it plus attention into the store, so switching to a warmed workspace never
-shows the full-screen restore placeholder. A workspace without a host layout is left untouched — only a real
+Prewarm is **read-only warming, never creation**: for every **expanded** project's workspace list (not only
+the currently selected project — a project's row can be expanded, and its worktrees visible for picking,
+before it becomes the selected project), the shell-mounted prewarm hook fetches the accepted snapshot for
+the first few workspaces (same limit spirit as the watcher prewarm, applied per project) and installs it plus
+attention into the store, so switching to a warmed workspace — including the first switch into a different,
+just-expanded project — never shows the full-screen restore placeholder. A workspace without a host layout is left untouched — only a real
 visit's hydration may instantiate and commit the default preset (with its possible settings side effects) —
 and prewarm never overwrites an already-hydrated document, is single-flight per workspace/connection
 generation, and swallows failures (the real visit surfaces them).

@@ -350,15 +350,19 @@ export function prewarmWorkspaceLayout(workspaceId: string): Promise<void> {
 export function useWorkspaceLayoutPrewarm(): void {
 	const status = useAppStore((state) => state.status);
 	const connectionGeneration = useAppStore((state) => state.connectionGeneration);
-	const selectedProjectWorkspaces = useAppStore((state) =>
-		state.selectedProjectId ? state.workspaces[state.selectedProjectId] : undefined,
-	);
+	const expandedProjectIds = useAppStore((state) => state.expandedProjectIds);
+	const workspaces = useAppStore((state) => state.workspaces);
 	useEffect(() => {
-		if (status !== "connected" || connectionGeneration === 0 || !selectedProjectWorkspaces) return;
-		for (const workspace of selectedProjectWorkspaces.slice(0, PREWARM_LAYOUT_WORKSPACE_LIMIT)) {
-			void prewarmWorkspaceLayout(workspace.id);
+		if (status !== "connected" || connectionGeneration === 0) return;
+		for (const projectId of Object.keys(expandedProjectIds)) {
+			if (!expandedProjectIds[projectId]) continue;
+			const projectWorkspaces = workspaces[projectId];
+			if (!projectWorkspaces) continue;
+			for (const workspace of projectWorkspaces.slice(0, PREWARM_LAYOUT_WORKSPACE_LIMIT)) {
+				void prewarmWorkspaceLayout(workspace.id);
+			}
 		}
-	}, [connectionGeneration, selectedProjectWorkspaces, status]);
+	}, [connectionGeneration, expandedProjectIds, workspaces, status]);
 }
 
 export function useWorkspaceLayoutSynchronization(workspaceId: string): void {
