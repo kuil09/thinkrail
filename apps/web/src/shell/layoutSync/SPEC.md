@@ -34,9 +34,18 @@ the currently selected project — a project's row can be expanded, and its work
 before it becomes the selected project), the shell-mounted prewarm hook fetches the accepted snapshot for
 the first few workspaces (same limit spirit as the watcher prewarm, applied per project) and installs it plus
 attention into the store, so switching to a warmed workspace — including the first switch into a different,
-just-expanded project — never shows the full-screen restore placeholder. A workspace without a host layout is left untouched — only a real
-visit's hydration may instantiate and commit the default preset (with its possible settings side effects) —
-and prewarm never overwrites an already-hydrated document, is single-flight per workspace/connection
+just-expanded project — never shows the full-screen restore placeholder. This runs **once per expansion**, not
+on every subsequent change to that project's workspace list: the hook remembers which expanded project ids it
+has already swept (a plain ref, cleared when a project collapses so re-expanding sweeps again) and skips a
+project already in that set even when its workspace list later grows — a workspace that appears afterward
+(this client's own creation takes the separate `freshWorkspaceIds` fast path instead; a peer's creation or
+attach reaching this client live) is warmed lazily on its first real visit instead. Sweeping on every list
+mutation would call `layout.get` for a workspace the instant this client merely learns it exists, which is
+never worth a host round trip for a workspace nobody here is about to open, and — because `getWorkspaceLayout`
+caches an absent read for the process lifetime — would permanently poison that cache against a layout written
+afterward by another path (a legacy migration, a restore). A workspace without a host layout is left untouched
+— only a real visit's hydration may instantiate and commit the default preset (with its possible settings side
+effects) — and prewarm never overwrites an already-hydrated document, is single-flight per workspace/connection
 generation, and swallows failures (the real visit surfaces them).
 
 A workspace this client just created (`workspace.create`, an attached existing worktree, never `enterDefaultWorkspace`

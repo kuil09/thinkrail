@@ -355,12 +355,19 @@ export function useWorkspaceLayoutPrewarm(): void {
 	const connectionGeneration = useAppStore((state) => state.connectionGeneration);
 	const expandedProjectIds = useAppStore((state) => state.expandedProjectIds);
 	const workspaces = useAppStore((state) => state.workspaces);
+	const warmedProjectIds = useRef(new Set<string>());
+	useEffect(() => {
+		for (const projectId of warmedProjectIds.current) {
+			if (!expandedProjectIds[projectId]) warmedProjectIds.current.delete(projectId);
+		}
+	}, [expandedProjectIds]);
 	useEffect(() => {
 		if (status !== "connected" || connectionGeneration === 0) return;
 		for (const projectId of Object.keys(expandedProjectIds)) {
-			if (!expandedProjectIds[projectId]) continue;
+			if (!expandedProjectIds[projectId] || warmedProjectIds.current.has(projectId)) continue;
 			const projectWorkspaces = workspaces[projectId];
 			if (!projectWorkspaces) continue;
+			warmedProjectIds.current.add(projectId);
 			for (const workspace of projectWorkspaces.slice(0, PREWARM_LAYOUT_WORKSPACE_LIMIT)) {
 				void prewarmWorkspaceLayout(workspace.id);
 			}
